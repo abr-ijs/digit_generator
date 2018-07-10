@@ -1,61 +1,62 @@
-function [slike, ime]=generiranje_stevil(kk ,vektor_st, ozadje, save_slike)
+function [slike, ime]=generate_digits(digit_exampels ,digit_vector, noisy_background, save_images)
 
-% Izdelava slik in trajektorij nakljucno generiranih stevk od 0 do 10
-% k = stevilo generiranih primerov za posamezno stevko
-% vektor_st = vektor z izbrani stevkami za generacijo
-% ozadje = generiranje ozadja (0,1)
-% save_slike = shranjevanje generiranih podatkov v datoteko (0,1)
+%% Generating images and trajectories with DMP parameters of digits from 0 to 10 
+% digit_exampels = how many exampels of each digit shuld be generated
+% digit_vector = whic digits shuld be generated
+% noisy_background = generating background noise(0,1)
+% save_images = saving images into file (0,1)
 
-% Zahtevane funkcije: devet programov st_*, izris_stevila, rand_number,
+% Required matlab funtions: devet programov st_*, izris_stevila, rand_number,
 % st_2del, narisi_st, affina_tr, set DMP funkcij
-%% Izbira parametrov
+%% Parameter set
 if nargin<3
-    ozadje = 0;
+    noisy_background = 0;
 end
 
-%casovni korak trajektorije in DMP parametri
+%time step and DMP parameters
 dt = 0.01;
 DMP.N = 25; 
 DMP.dt = dt; 
 DMP.a_z = 48; 
 DMP.a_x = 2;
 DMP.tau=3;
-%velikost slike v bitih in osnovna debelina èrte
+
+%Image size in bits
 izris.im_size_x = 40;
 izris.im_size_y = 40;
-izris.debelina=1.2;
 
-%visina, sirina, rotacija, translacija trajektorije stevke
+
+%Hight, wide, rotation and translation of initial digit
 postavitev.h = 4;
 postavitev.w = 2;
 postavitev.r = 0;
 postavitev.t = 0;
 
 
-% Izris, debelina crte in gauss filter
+%Gauss filter  and line wide in bits
 ploting=0;
-debelina_s=1.2;
+debelina_s=1.0;
 sigma_d=0;
-gauss=0.5;
+gauss=0.1;
 
-% Priprava za generiranje ozadja
+% Preparing for background
 b=40-1;    
 [x, y]=meshgrid(0:1:b,0:1:b); 
      
-%% Generiranje trening podatkov
+%% Generating training data
 
-h = waitbar(0,'Generiranje stevk');
+h = waitbar(0,'Generating digits');
 
 
-for k=1:kk 
+for k=1:digit_exampels 
     
-    for r=1:length(vektor_st)  
+    for r=1:length(digit_vector)  
         
-        st=vektor_st(r);  
+        st=digit_vector(r);  
 
-        i=(k-1)*length(vektor_st)+r;
+        i=(k-1)*length(digit_vector)+r;
 
-        % Variacija parametrov transformacije slike 
+        % Varition of parameters for image transformation
         izris.debelina = debelina_s+rand_number()*sigma_d;
 
         parametri_tr.theta = rand_number()*8*pi/180;
@@ -71,7 +72,7 @@ for k=1:kk
         parametri_tr.ysh = rand_number()*0.1;
 
 
-        %Generiranje DMP parametrov trajektorije posameznih stevk
+        %Generating DMP parameters
         if st==0
             DMP=st_0(postavitev,DMP,ploting);
         end
@@ -114,16 +115,16 @@ for k=1:kk
 
         
 
-        % Izdelava slike in trajektorije
+        % Generate image and trajectory
         [slike.im{i}, slike.trj{i}] = narisi_st(DMP,izris,0); 
 
-        %Filtriranje slike
+        %Gausse filtering of image
         slike.im{i}=imgaussfilt(slike.im{i},gauss);
         
-        %Affina transformacija
+        %Affina transformation
         [slike.im{i}, slike.trj{i}]=affina_tr(slike.im{i},slike.trj{i},parametri_tr,ploting);
         
-        %Hitrosti in pospeski
+        %Velocity and aceleration
         vx=gradient(slike.trj{i}(:,1),dt);
         vy=gradient(slike.trj{i}(:,2),dt);
         ax=gradient(vx,dt);
@@ -176,14 +177,14 @@ title('utezi')
        
        
        
+%% Backgraund generation       
        
-       
-        if ozadje==1;
-            % Zeljena pozicija maksimuma
+        if noisy_background==1
+            % Desired maximum position
             xc=13*rand_number(); 
             yc=13*rand_number();
 
-            % Sistemska matrika
+            % Sistem matrix
             A=[xc 0 xc/2 1 0 0;...
                0 yc yc/2 0 1 0;... 
                b^2 0 0 b 0 1;... 
@@ -191,10 +192,10 @@ title('utezi')
                b^2 b^2 b^2 b b 1;... 
                0 0 0 0 0 1];
 
-           %Vrednosti
+           %Values
             n=[0 0 1*rand_number() 1*rand_number() 1*rand_number() 1*rand_number()];
 
-            % Izracun ozadja
+            %Calculating backgraund
             r=A\n';
 
             axx=r(1);
@@ -205,7 +206,7 @@ title('utezi')
             n=r(6);
             z=axx*x.^2+ax*x+ayy*y.^2+ay*y+axy*x.*y+n;
 
-            % Normalizacija ozadja
+            % Normalization
             Z=z;
             Zn = (Z-min(Z(:)))./(max(Z(:))-min(Z(:)));     
             Zn =Zn/(1-0.3)+0.3 ;
@@ -216,7 +217,7 @@ title('utezi')
             slike.im{i}=IM.*Zn;
         end
         
-            waitbar(i/(kk*length(vektor_st)),h)		
+            waitbar(i/(digit_exampels*length(digit_vector)),h)		
     end
   
 
@@ -225,18 +226,18 @@ end
 
 close(h)
 
-slike.id=rand*1000; % Identifikacija seta podatkov
+slike.id=rand*1000; % ID number
 slike.date=datetime;
 
 
 
 
-slike.opis=['slike_' '[' num2str(vektor_st) ']_' num2str(kk*length(vektor_st)) '.mat'];
+slike.opis=['slike_' '[' num2str(digit_vector) ']_' num2str(digit_exampels*length(digit_vector)) '.mat'];
 
-% Izris vzorca
+% Plot example
 figure(6)
 
-for i=1:min([28,kk*length(vektor_st)])
+for i=1:min([28,digit_exampels*length(digit_vector)])
     
     subplot(4,7,i)
     
@@ -246,9 +247,10 @@ for i=1:min([28,kk*length(vektor_st)])
     p4.LineWidth = 1.5; 
 end
 
-%% Shrani podatke
-if save_slike==1
-    ime=['slike_' num2str(slike.id) '.mat'];
+%% Save data
+ime=['slike_' num2str(slike.id) '.mat'];
+if save_images==1
+    
     opis=slike.opis;
     date=datestr(slike.date);
     save(ime,'slike','opis','date')  
