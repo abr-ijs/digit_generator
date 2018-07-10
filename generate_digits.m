@@ -22,20 +22,20 @@ DMP.a_x = 2;
 DMP.tau=3;
 
 %Image size in bits
-izris.im_size_x = 40;
-izris.im_size_y = 40;
+plot_out.im_size_x = 40;
+plot_out.im_size_y = 40;
 
 
 %Hight, wide, rotation and translation of initial digit
-postavitev.h = 4;
-postavitev.w = 2;
-postavitev.r = 0;
-postavitev.t = 0;
+layout.h = 4;
+layout.w = 2;
+layout.r = 0;
+layout.t = 0;
 
 
 %Gauss filter  and line wide in bits
 ploting=0;
-debelina_s=1.0;
+wide=1.0;
 sigma_d=0;
 gauss=0.1;
 
@@ -57,7 +57,7 @@ for k=1:digit_exampels
         i=(k-1)*length(digit_vector)+r;
 
         % Varition of parameters for image transformation
-        izris.debelina = debelina_s+rand_number()*sigma_d;
+        plot_out.debelina = wide+rand_number()*sigma_d;
 
         parametri_tr.theta = rand_number()*8*pi/180;
 
@@ -74,49 +74,49 @@ for k=1:digit_exampels
 
         %Generating DMP parameters
         if st==0
-            DMP=st_0(postavitev,DMP,ploting);
+            DMP=st_0(layout,DMP,ploting);
         end
         
         if st==1
-            DMP=st_1(postavitev,DMP,ploting);
+            DMP=st_1(layout,DMP,ploting);
         end
         
         if st==2
-            DMP=st_2(postavitev,DMP,ploting);
+            DMP=st_2(layout,DMP,ploting);
         end
         
         if st==3
-            DMP=st_3(postavitev,DMP,ploting);
+            DMP=st_3(layout,DMP,ploting);
         end
         
         if st==4
-            DMP=st_4(postavitev,DMP,ploting);
+            DMP=st_4(layout,DMP,ploting);
         end
         
         if st==5
-            DMP=st_5(postavitev,DMP,ploting);
+            DMP=st_5(layout,DMP,ploting);
         end
          
         if st==6
-            DMP=st_6(postavitev,DMP,ploting);
+            DMP=st_6(layout,DMP,ploting);
         end
          
         if st==7
-            DMP=st_7(postavitev,DMP,ploting);
+            DMP=st_7(layout,DMP,ploting);
         end
          
         if st==8
-            DMP=st_8(postavitev,DMP,ploting);
+            DMP=st_8(layout,DMP,ploting);
         end
          
         if st==9
-            DMP=st_9(postavitev,DMP,ploting);
+            DMP=st_9(layout,DMP,ploting);
         end
 
         
 
         % Generate image and trajectory
-        [slike.im{i}, slike.trj{i}] = narisi_st(DMP,izris,0); 
+        [slike.im{i}, slike.trj{i}] = narisi_st(DMP,plot_out,0); 
 
         %Gausse filtering of image
         slike.im{i}=imgaussfilt(slike.im{i},gauss);
