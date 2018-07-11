@@ -118,8 +118,12 @@ for k=1:digit_exampels
         % Generate image and trajectory
         [slike.im{i}, slike.trj{i}] = narisi_st(DMP,plot_out,0); 
 
-        %Gausse filtering of image
-        slike.im{i}=imgaussfilt(slike.im{i},gauss);
+        % Gauss filtering of image
+        if exist('OCTAVE_VERSION', 'builtin') ~= 0
+          slike.im{i}=imsmooth(slike.im{i},gauss);
+        else
+          slike.im{i}=imgaussfilt(slike.im{i},gauss);
+        end
         
         %Affina transformation
         [slike.im{i}, slike.trj{i}]=affina_tr(slike.im{i},slike.trj{i},parametri_tr,ploting);
@@ -227,7 +231,11 @@ end
 close(h)
 
 slike.id=rand*1000; % ID number
-slike.date=datetime;
+if exist('OCTAVE_VERSION', 'builtin') ~= 0
+  slike.date=date;
+else
+  slike.date=datetime;
+end
 
 
 
