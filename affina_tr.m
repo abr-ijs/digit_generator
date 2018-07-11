@@ -23,20 +23,38 @@ SH=[ 1 shy 0;...
 M=SH*SC*R*T;
 
 if exist('OCTAVE_VERSION', 'builtin') ~= 0
-  x_min = 1 - size(Slika_I,1)/2;
-  x_max = size(Slika_I,1) - (size(Slika_I,1)/2);
-  y_min = 1 - size(Slika_I,2)/2;
-  y_max = size(Slika_I,2) - (size(Slika_I,2)/2);
-  [X,Y] = meshgrid(x_min:x_max,y_min:y_max);
-  [X,Y] = meshgrid(1:size(Slika_I,1),1:size(Slika_I,2));
-  [sy, sx] = size(X);
-  D = [X(:), Y(:), ones(sx*sy, 1)]';
-  MD = inv(M)*D;
-  XI = MD(1,:)./MD(3,:);
-  YI = MD(2,:)./MD(3,:);
-  XI = reshape(XI, sy, sx);
-  YI = reshape(YI, sy, sx);
-  [B, valid] = imremap(Slika_I, XI, YI);
+  incp = [1 1; size(Slika_I,1) 1; size(Slika_I,1)  size(Slika_I,2) ; 1 size(Slika_I,2)];
+ udata = [min(incp(:,1)) max(incp(:,1))];
+ vdata = [min(incp(:,2)) max(incp(:,2))];
+     T1=[1 0 0;...
+    0 1 0;...
+    -20 -20 1];
+  
+  tform_1=maketform('affine',T1);
+  [B1 ,xl,yl]= imtransform(Slika_I,tform_1);
+   
+   
+   
+  
+
+
+  
+
+
+  tform=maketform('affine',M);
+  [B2 ,xl,yl]= imtransform(B1,tform ,'vdata',[-19,20],'udata', [-19,20],'xdata',[-19,20],'ydata', [-19,20]);
+ #imshow(B2)
+   T1=[1 0 0;...
+    0 1 0;...
+    20 20 1];
+  
+  tform_1=maketform('affine',T1);
+  [B,xl,yl]= imtransform(B2,tform_1,'vdata',[-19,20],'udata', [-19,20],'xdata',[1,40],'ydata', [1,40]);
+  
+  
+  # imshow(B)
+  
+  
 else
   cb_ref = imref2d(size(Slika_I));
   cb_ref.XWorldLimits=cb_ref.XWorldLimits-size(Slika_I,1)/2;

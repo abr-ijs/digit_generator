@@ -245,15 +245,20 @@ slike.opis=['slike_' '[' num2str(digit_vector) ']_' num2str(digit_exampels*lengt
 % Plot example
 figure(6)
 
-for i=1:min([28,digit_exampels*length(digit_vector)])
+for i=1:min([12,digit_exampels*length(digit_vector)])
     
-    subplot(4,7,i)
+    subplot(3,4,i)
     
     imshow(slike.im{i})
     hold on
     p4=plot(slike.trj{i}(:,1),slike.trj{i}(:,2));
-    p4.LineWidth = 1.5; 
+    %p4.LineWidth = 1; 
 end
+figure(7)
+  imshow(slike.im{2})
+    hold on
+    p8=plot(slike.trj{2}(:,1),slike.trj{2}(:,2));
+
 
 %% Save data
 ime=['slike_' num2str(slike.id) '.mat'];
