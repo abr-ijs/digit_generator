@@ -41,8 +41,13 @@ if ~euler
   else
     y0 = [y0(1); y0(2)*tau];
   end
-  [t_res, y_res] = ode113(@differential_equation, linspace(0, tau, M+1), ...
+  if exist('OCTAVE_VERSION', 'builtin') ~= 0
+    [t_res, y_res] = ode45(@differential_equation, linspace(0, tau, M+1), ...
                           [1; y0], OPTIONS, DMP_param, dimen);
+  else
+    [t_res, y_res] = ode113(@differential_equation, linspace(0, tau, M+1), ...
+                            [1; y0], OPTIONS, DMP_param, dimen);
+  end
   %y_res = [y_res(:,2), y_res(:,3) / tau];
 
   Y_ode(:,dimen) = y_res(:,2);

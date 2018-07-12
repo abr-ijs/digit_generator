@@ -22,8 +22,8 @@ DMP.a_x = 2;
 DMP.tau=3;
 
 %Image size in bits
-plot_out.im_size_x = 40;
-plot_out.im_size_y = 40;
+plot_out.im_size_x = 50;
+plot_out.im_size_y = 50;
 
 
 %Hight, wide, rotation and translation of initial digit
@@ -40,8 +40,9 @@ sigma_d=0;
 gauss=0.1;
 
 % Preparing for background
-b=40-1;    
-[x, y]=meshgrid(0:1:b,0:1:b); 
+a=plot_out.im_size_x-1;
+b=plot_out.im_size_y-1;    
+[x, y]=meshgrid(0:1:a,0:1:b); 
      
 %% Generating training data
 
@@ -118,8 +119,12 @@ for k=1:digit_exampels
         % Generate image and trajectory
         [slike.im{i}, slike.trj{i}] = narisi_st(DMP,plot_out,0); 
 
-        %Gausse filtering of image
-        slike.im{i}=imgaussfilt(slike.im{i},gauss);
+        % Gauss filtering of image
+        if exist('OCTAVE_VERSION', 'builtin') ~= 0
+          slike.im{i}=imsmooth(slike.im{i},gauss);
+        else
+          slike.im{i}=imgaussfilt(slike.im{i},gauss);
+        end
         
         %Affina transformation
         [slike.im{i}, slike.trj{i}]=affina_tr(slike.im{i},slike.trj{i},parametri_tr,ploting);
@@ -187,9 +192,9 @@ title('utezi')
             % Sistem matrix
             A=[xc 0 xc/2 1 0 0;...
                0 yc yc/2 0 1 0;... 
-               b^2 0 0 b 0 1;... 
+               a^2 0 0 b 0 1;... 
                0 b^2 0 0 b 1;... 
-               b^2 b^2 b^2 b b 1;... 
+               a^2 b^2 b^2 b b 1;... 
                0 0 0 0 0 1];
 
            %Values
@@ -227,7 +232,11 @@ end
 close(h)
 
 slike.id=rand*1000; % ID number
-slike.date=datetime;
+if exist('OCTAVE_VERSION', 'builtin') ~= 0
+  slike.date=date;
+else
+  slike.date=datetime;
+end
 
 
 
@@ -237,21 +246,22 @@ slike.opis=['slike_' '[' num2str(digit_vector) ']_' num2str(digit_exampels*lengt
 % Plot example
 figure(6)
 
-for i=1:min([28,digit_exampels*length(digit_vector)])
+for i=1:min([12,digit_exampels*length(digit_vector)])
     
-    subplot(4,7,i)
+    subplot(3,4,i)
     
     imshow(slike.im{i})
     hold on
     p4=plot(slike.trj{i}(:,1),slike.trj{i}(:,2));
-    p4.LineWidth = 1.5; 
+    %p4.LineWidth = 1; 
 end
+
 
 %% Save data
 ime=['slike_' num2str(slike.id) '.mat'];
 if save_images==1
     
     opis=slike.opis;
-    date=datestr(slike.date);
-    save(ime,'slike','opis','date')  
+    date_time=datestr(slike.date);
+    save(ime,'slike','opis','date_time')  
 end
