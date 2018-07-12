@@ -36,23 +36,23 @@ if exist('OCTAVE_VERSION', 'builtin') ~= 0
    
    
   
-
-
+    a=size(Slika_I,1)/2;
+    b=size(Slika_I,2)/2;
   
 
 
   tform=maketform('affine',M);
-  [B2 ,xl,yl]= imtransform(B1,tform ,'vdata',[-19,20],'udata', [-19,20],'xdata',[-19,20],'ydata', [-19,20]);
- #imshow(B2)
+  [B2 ,xl,yl]= imtransform(B1,tform ,'vdata',[1-a,a],'udata', [1-b,b],'xdata',[1-a,a],'ydata', [1-b,b]);
+ %imshow(B2)
    T1=[1 0 0;...
     0 1 0;...
     20 20 1];
   
   tform_1=maketform('affine',T1);
-  [B,xl,yl]= imtransform(B2,tform_1,'vdata',[-19,20],'udata', [-19,20],'xdata',[1,40],'ydata', [1,40]);
+  [B,xl,yl]= imtransform(B2,tform_1,'vdata',[1-a,a],'udata', [1-b,b],'xdata',[1,size(Slika_I,1)],'ydata', [1,size(Slika_I,2)]);
   
   
-  # imshow(B)
+ % imshow(B)
   
   
 else
