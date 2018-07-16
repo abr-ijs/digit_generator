@@ -134,29 +134,51 @@ function Data = generatedigits(nSamples, varargin)
     end
 
     %% Generate
-    for k = 1:args.Results.nSamples
-      for r = 1:length(args.Results.digits)
+%     for k = 1:args.Results.nSamples
+%       for r = 1:length(args.Results.digits)
+% 
+%         digit = args.Results.digits(r);
+% 
+%         i = (k-1) * length(args.Results.digits) + r;
+% 
+%         % Generate a single digit sample
+%         [Data.im{i}, Data.trj{i}, Data.DMP_object{i}, Data.DMP_trj{i}] =...
+%             generatedigit(digit, args, dt, DMP, PlotOut, layout,...
+%                           plotting, width, sigma_d, gauss, gridX, gridY);
+% 
+%         % Display progress
+%         if args.Results.plot
+%             waitbar(i / (args.Results.nSamples * length(args.Results.digits)), hWaitBar);
+%         else
+%            percentDone = 100 * i / (args.Results.nSamples * length(args.Results.digits));
+%            msg = sprintf('Percent done: %3.1f', percentDone);
+%            fprintf([reverseStr, msg]);
+%            reverseStr = repmat(sprintf('\b'), 1, length(msg));
+%         end
+% 
+%       end
+%     end
 
-        digit = args.Results.digits(r);
+    for iSample = 1:(args.Results.nSamples * length(args.Results.digits))
+        % Select a digit
+        iDigit = mod(iSample - 1, length(args.Results.digits)) + 1;
+        digit = args.Results.digits(iDigit);
 
-        i = (k-1) * length(args.Results.digits) + r;
-
-        % Generate a single digit sample
-        [Data.im{i}, Data.trj{i}, Data.DMP_object{i}, Data.DMP_trj{i}] =...
+        % Generate a sample of the digit
+        [Data.im{iSample}, Data.trj{iSample},...
+         Data.DMP_object{iSample}, Data.DMP_trj{iSample}] =...
             generatedigit(digit, args, dt, DMP, PlotOut, layout,...
                           plotting, width, sigma_d, gauss, gridX, gridY);
 
         % Display progress
         if args.Results.plot
-            waitbar(i / (args.Results.nSamples * length(args.Results.digits)), hWaitBar);
+            waitbar(iSample / (args.Results.nSamples * length(args.Results.digits)), hWaitBar);
         else
-           percentDone = 100 * i / (args.Results.nSamples * length(args.Results.digits));
+           percentDone = 100 * iSample / (args.Results.nSamples * length(args.Results.digits));
            msg = sprintf('Percent done: %3.1f', percentDone);
            fprintf([reverseStr, msg]);
            reverseStr = repmat(sprintf('\b'), 1, length(msg));
         end
-
-      end
     end
 
     %% Close progress bar
