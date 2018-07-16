@@ -58,7 +58,7 @@ function Data = generatedigits(nSamples, varargin)
 %   Jožef Stefan Institute, Slovenia.
 %   ATR Computational Neuroscience Laboratories, Japan.
 
-% Set defaults
+%% Set defaults
 defaultDigits = [0:9];
 defaultImageSize = [40,40];
 defaultNoise = [];
@@ -69,7 +69,7 @@ defaultPlot = false;
 defaultPar = [];
 defaultSplit = [];
 
-% Parse arguments
+%% Parse arguments
 args = inputParser;
 addRequired(args,'nSamples', @(x) isnumeric(x) && isscalar(x) && x >= 1);
 addParameter(args, 'digits', defaultDigits,...
@@ -90,57 +90,59 @@ addParameter(args, 'split', defaultSplit,...
                                  2 <= size(x,2) <= 3 && all(x <= 1.0)));
 parse(args, nSamples, varargin{:});
 
-% Check for Octave
+%% Check for Octave
 if exist('OCTAVE_VERSION', 'builtin') ~= 0
     isOctave = true;
 else
     isOctave = false;
 end
 
-% Time step and DMP parameters
+%% Time step and DMP parameters
 dt = 0.01;
-DMP.N = 25; 
-DMP.dt = dt; 
-DMP.a_z = 48; 
+DMP.N = 25;
+DMP.dt = dt;
+DMP.a_z = 48;
 DMP.a_x = 2;
-DMP.tau=3;
+DMP.tau = 3;
 
-% Image size in bits
-plot_out.im_size_x = args.Results.imageSize(1);
-plot_out.im_size_y = args.Results.imageSize(2);
+%% Image size in pixels
+PlotOut.im_size_x = args.Results.imageSize(1);
+PlotOut.im_size_y = args.Results.imageSize(2);
 
-% Height, width, rotation and translation of initial digit
+%% Height, width, rotation and translation of initial digit
 layout.h = 4;
 layout.w = 2;
 layout.r = 0;
 layout.t = 0;
 
-% Gaussian filter and line width in bits
+%% Digit Gaussian filter and line width in pixels
 plotting = 0;
 width = 1.0;
 sigma_d = 0;
 gauss = 0.1;
 
-% Preparing for background
-a = plot_out.im_size_x - 1;
-b = plot_out.im_size_y - 1;
+%% Prepare image background
+a = PlotOut.im_size_x - 1;
+b = PlotOut.im_size_y - 1;
 [x, y] = meshgrid(0:1:a, 0:1:b);
 
+%% Report progress
 if args.Results.plot
     hWaitBar = waitbar(0,'Generating digits');
 else
     reverseStr = '';
 end
 
+%% Generate
 for k = 1:args.Results.nSamples
   for r = 1:length(args.Results.digits)
       
-    st = args.Results.digits(r);
+    digit = args.Results.digits(r);
 
     i = (k-1)*length(args.Results.digits)+r;
 
     % Variation of parameters for image transformation
-    plot_out.debelina = width + rand_number() * sigma_d;
+    PlotOut.debelina = width + rand_number() * sigma_d;
 
     parametri_tr.theta = rand_number()*8*pi/180;
     parametri_tr.x = rand_number()*3;
@@ -150,48 +152,48 @@ for k = 1:args.Results.nSamples
     parametri_tr.ysh = rand_number()*0.1;
 
     % Generate DMP parameters
-    if st == 0
+    if digit == 0
         DMP = st_0(layout, DMP, plotting);
     end
 
-    if st == 1
+    if digit == 1
         DMP = st_1(layout, DMP, plotting);
     end
 
-    if st == 2
+    if digit == 2
         DMP = st_2(layout, DMP, plotting);
     end
 
-    if st == 3
+    if digit == 3
         DMP = st_3(layout, DMP, plotting);
     end
 
-    if st == 4
+    if digit == 4
         DMP = st_4(layout, DMP, plotting);
     end
 
-    if st == 5
+    if digit == 5
         DMP = st_5(layout, DMP, plotting);
     end
 
-    if st == 6
+    if digit == 6
         DMP = st_6(layout, DMP, plotting);
     end
 
-    if st == 7
+    if digit == 7
         DMP = st_7(layout,DMP,plotting);
     end
 
-    if st==8
+    if digit == 8
         DMP = st_8(layout, DMP, plotting);
     end
 
-    if st == 9
+    if digit == 9
         DMP = st_9(layout, DMP, plotting);
     end
 
     % Generate image and trajectory
-    [Data.im{i}, Data.trj{i}] = narisi_st(DMP, plot_out, 0); 
+    [Data.im{i}, Data.trj{i}] = narisi_st(DMP, PlotOut, 0); 
 
     % Gaussian filtering of image
     if isOctave
@@ -216,7 +218,7 @@ for k = 1:args.Results.nSamples
     Data.DMP_object{i} = DMP_reconstruct_adapted(path(:,2:3), path(:,4:5), path(:,6:7), path(:,1), DMP);
 
     [t_res, y_res] = DMP_track_adapted(Data.DMP_object{i},Data.DMP_object{i}.y0,Data.DMP_object{i}.dt);
-    Data.DMP_trj{i}=y_res(:,1:2);
+    Data.DMP_trj{i} = y_res(:,1:2);
 
     %% Noise generation
     if strcmpi(args.Results.noise, 'gaussian-background')
