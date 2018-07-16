@@ -143,7 +143,14 @@ function Data = generatedigits(nSamples, varargin)
     % Matlab parallel execution
     if ~isempty(args.Results.par) && args.Results.par > 1 && ~isOctave
         % Prepare parallel pool
-        hPool = parpool(args.Results.par);
+        if args.Results.par > feature('numCores')
+            fprintf('Requested par value exceeds maximum number of available local cores (%d)!\n',...
+                    feature('numCores'));
+            fprintf('Downscaling parallel pool to %d cores.\n', feature('numCores'));
+            hPool = parpool(feature('numCores'));
+        else
+            hPool = parpool(args.Results.par);
+        end
     
         nSamples = args.Results.nSamples * length(args.Results.digits);
         parfor iSample = 1:nSamples
@@ -159,7 +166,7 @@ function Data = generatedigits(nSamples, varargin)
                           
             % Report progress
             if args.Results.plot
-                fprintf('Generated sample %d of %d, %.2f percent done\n', iSample, nSamples, iSample / nSamples);
+                fprintf('Generated sample %d of %d.\n', iSample, nSamples);
             end 
         end
         
