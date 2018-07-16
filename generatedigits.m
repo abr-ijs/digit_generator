@@ -1,69 +1,94 @@
 function Data = generatedigits(nSamples, varargin)
-%GENERATEDIGITS: Generate images and trajectories of digits.
-%   GENERATEDIGITS generates images and trajectories with DMP parameters of
-%   numerical digits from 0 to 9.
+%GENERATEDIGITS: Generate images and trajectories of synthetic MNIST digits.
+%   GENERATEDIGITS generates images and draw trajectories with DMP parameters of
+%   synthetic MNIST-esque numerical digits from 0 to 9.
 %
 %   DATA = GENERATEDIGITS(NSAMPLES) returns a data struct
 %   containing NSAMPLES of generated image and trajectory data for each of
 %   the digits 0-9.
 %
-%   DATA = GENERATEDIGITS(NSAMPLES, DIGITARRAY) returns a data struct
-%   containing NSAMPLES of generated image and trajectory data for each
-%   digit in DIGITARRAY, where DIGITARRAY is a 1D array of integers
-%   selected from 0-9.
+%   Optional arguments may be specified as name/value pairs as follows:
 %
-%   DATA = GENERATEDIGITS(NSAMPLES, DIGITARRAY, IMAGESIZE) allows the
-%   generated IMAGESIZE to be specified as a 1D, 2-element array,
-%   e.g. [28,28].  Defaults to [40,40].
+%   DATA = GENERATEDIGITS(NSAMPLES, ..."DIGITS", DIGITSVAL...) allows
+%   the digits that are generated to be specified, where DIGITARRAY is a
+%   1D array of integers selected from 0-9, e.g. [0, 1, 2]. Defaults to
+%   [0:9].
 %
-%   DATA = GENERATEDIGITS(NSAMPLES, DIGITARRAY, IMAGESIZE, NOISETYPE) allows
-%   NOISETYPE noise to be optionally added to the generated images, where
-%   NOISETYPE is a string that may be specified as "gaussian-background",
-%   "awgn", "motion-blur" or "reduced-contrast-and-awgn".
+%   DATA = GENERATEDIGITS(NSAMPLES, ..."IMAGESIZE", IMAGESIZEVAL...)
+%   allows the generated image size to be specified as a 1D,
+%   2-element array, e.g. [28,28].  Defaults to [40,40].
 %
-%   DATA = GENERATEDIGITS(NSAMPLES, DIGITARRAY, IMAGESIZE, NOISETYPE, SAVEPATH)
-%   allows SAVEPATH to be optionally specified as a MAT file save path for
-%   the generated DATA.
+%   DATA = GENERATEDIGITS(NSAMPLES, ..."NOISE", NOISEVAL...) allows
+%   noise to be optionally added to the generated images, where
+%   NOISEVAL is a string that may be specified as "gaussian-background",
+%   "awgn", "motion-blur" or "reduced-contrast-and-awgn".  The last 3
+%   are parameterized according to the noise generation used by the
+%   n-MNIST (noisy MNIST) dataset of Basu et al. from LSU:
+%   http://www.csc.lsu.edu/~saikat/n-mnist/
+%   If set to [] or omitted, no noise will be added.
 %
-%   DATA = GENERATEDIGITS(NSAMPLES, DIGITARRAY, IMAGESIZE, NOISETYPE, SAVEPATH, PLOT)
-%   where PLOT is set to true will plot a set of example images from the
-%   generated DATA, as well as a GUI progress bar.
+%   DATA = GENERATEDIGITS(NSAMPLES, ..."SAVEPATH", SAVEPATHVAL...)
+%   allows a .mat file save path to be optionally specified for saving
+%   the generated data to file. If set to [] or omitted, no file will be
+%   saved. Defaults to [];
+%
+%   DATA = GENERATEDIGITS(NSAMPLES, ..."PLOT", PLOTVAL...)
+%   where setting PLOTVAL to true will plot a set of example images from the
+%   generated DATA, as well as a GUI progress bar.  Defaults to false.
+%
+%   DATA = GENERATEDIGITS(NSAMPLES, ..."PAR", PARVAL...)
+%   enables parallel processing of data, where PARVAL is specified as an
+%   integer that determines the pool size (cores/threads).  If set to [],
+%   0, 1, or omitted, parallel processing will be disabled.
+%
+%   DATA = GENERATEDIGITS(NSAMPLES, ..."SPLIT", SPLITVAL...)
+%   allows for the generation of randomized training, validation and
+%   test split indices of the generated dataset, where SPLITVAL is
+%   specified as a 2-element or 3-element array of real values <= 1
+%   determining relative percentages, e.g. [0.7,0.3] for 70% training data
+%   and 30% test data or [0.7, 0.15, 0.15] for 70% training data,
+%   15% validation data and 15% test data.  The seed used for randomization
+%   is stored within the generated data struct alongside the indices.
+%   If set to [] or omitted, no split will be generated. Defaults to [];
 %
 %   Required Matlab functions: devet programov st_*, izris_stevila, rand_number,
 %   st_2del, narisi_st, affina_tr, set DMP funkcij
 %
 %   Copyright (C) 2018 Rok Pahič, Barry Ridge
+%   Jožef Stefan Institute, Slovenia.
+%   ATR Computational Neuroscience Laboratories, Japan.
+
+% Set defaults
+defaultDigits = [0:9];
+defaultImageSize = [40,40];
+defaultNoise = [];
+expectedNoiseValues = {'gaussian-background', 'awgn', 'motion-blur',...
+                       'reduced-contrast-and-awgn'};
+defaultSavePath = [];
+defaultPlot = false;
+defaultPar = [];
+defaultSplit = [];
 
 % Parse arguments
-if nargin < 2 || isempty(varargin{1})
-    digitArray = 0:9;
-else
-    digitArray = varargin{1};
-end
-
-if nargin < 3 || isempty(varargin{2})
-    imageSize = [40,40];
-else
-    imageSize = varargin{2};
-end
-
-if nargin < 4
-    noiseType = [];
-else
-    noiseType = varargin{3};
-end
-
-if nargin < 5
-    savePath = [];
-else
-    savePath = varargin{4};
-end
-
-if nargin < 6
-    guiPlot = false;
-else
-    guiPlot = varargin{5};
-end
+args = inputParser;
+addRequired(args,'nSamples', @(x) isnumeric(x) && isscalar(x) && x >= 1);
+addParameter(args, 'digits', defaultDigits,...
+             @(x) isnumeric(x) && size(x,1) == 1 && 1 <= size(x,2) <= 10 &&...
+                  all(ismember(x, [0:9])));
+addParameter(args, 'imageSize', defaultImageSize,...
+             @(x) isnumeric(x) && size(x,1) == 1 && size(x,2) == 2 &&...
+                  x(1) >= 1 && x(2) >= 1);
+addParameter(args, 'noise', defaultNoise,...
+             @(x) isempty(x) || any(validatestring(x, expectedNoiseValues)));
+addParameter(args, 'savePath', defaultSavePath,...
+             @(x) isempty(x) || ischar(x));
+addParameter(args, 'plot', defaultPlot, @islogical);
+addParameter(args, 'par', defaultPar,...
+             @(x) isempty(x) || (isnumeric(x) && isscalar(x) && x >= 0));
+addParameter(args, 'split', defaultSplit,...
+             @(x) isempty(x) || (isnumeric(x) && size(x,1) == 1 &&...
+                                 2 <= size(x,2) <= 3 && all(x <= 1.0)));
+parse(args, nSamples, varargin{:});
 
 % Check for Octave
 if exist('OCTAVE_VERSION', 'builtin') ~= 0
@@ -81,8 +106,8 @@ DMP.a_x = 2;
 DMP.tau=3;
 
 % Image size in bits
-plot_out.im_size_x = imageSize(1);
-plot_out.im_size_y = imageSize(2);
+plot_out.im_size_x = args.Results.imageSize(1);
+plot_out.im_size_y = args.Results.imageSize(2);
 
 % Height, width, rotation and translation of initial digit
 layout.h = 4;
@@ -101,18 +126,18 @@ a = plot_out.im_size_x - 1;
 b = plot_out.im_size_y - 1;
 [x, y] = meshgrid(0:1:a, 0:1:b);
 
-if guiPlot
+if args.Results.plot
     hWaitBar = waitbar(0,'Generating digits');
 else
     reverseStr = '';
 end
 
-for k = 1:nSamples
-  for r = 1:length(digitArray)
+for k = 1:args.Results.nSamples
+  for r = 1:length(args.Results.digits)
       
-    st=digitArray(r);
+    st = args.Results.digits(r);
 
-    i=(k-1)*length(digitArray)+r;
+    i = (k-1)*length(args.Results.digits)+r;
 
     % Variation of parameters for image transformation
     plot_out.debelina = width + rand_number() * sigma_d;
@@ -125,54 +150,54 @@ for k = 1:nSamples
     parametri_tr.ysh = rand_number()*0.1;
 
     % Generate DMP parameters
-    if st==0
-        DMP=st_0(layout,DMP,plotting);
+    if st == 0
+        DMP = st_0(layout, DMP, plotting);
     end
 
-    if st==1
-        DMP=st_1(layout,DMP,plotting);
+    if st == 1
+        DMP = st_1(layout, DMP, plotting);
     end
 
-    if st==2
-        DMP=st_2(layout,DMP,plotting);
+    if st == 2
+        DMP = st_2(layout, DMP, plotting);
     end
 
-    if st==3
-        DMP=st_3(layout,DMP,plotting);
+    if st == 3
+        DMP = st_3(layout, DMP, plotting);
     end
 
-    if st==4
-        DMP=st_4(layout,DMP,plotting);
+    if st == 4
+        DMP = st_4(layout, DMP, plotting);
     end
 
-    if st==5
-        DMP=st_5(layout,DMP,plotting);
+    if st == 5
+        DMP = st_5(layout, DMP, plotting);
     end
 
-    if st==6
-        DMP=st_6(layout,DMP,plotting);
+    if st == 6
+        DMP = st_6(layout, DMP, plotting);
     end
 
-    if st==7
-        DMP=st_7(layout,DMP,plotting);
+    if st == 7
+        DMP = st_7(layout,DMP,plotting);
     end
 
     if st==8
-        DMP=st_8(layout,DMP,plotting);
+        DMP = st_8(layout, DMP, plotting);
     end
 
-    if st==9
-        DMP=st_9(layout,DMP,plotting);
+    if st == 9
+        DMP = st_9(layout, DMP, plotting);
     end
 
     % Generate image and trajectory
-    [Data.im{i}, Data.trj{i}] = narisi_st(DMP,plot_out,0); 
+    [Data.im{i}, Data.trj{i}] = narisi_st(DMP, plot_out, 0); 
 
     % Gaussian filtering of image
     if isOctave
-      Data.im{i} = imsmooth(Data.im{i},gauss);
+      Data.im{i} = imsmooth(Data.im{i}, gauss);
     else
-      Data.im{i} = imgaussfilt(Data.im{i},gauss);
+      Data.im{i} = imgaussfilt(Data.im{i}, gauss);
     end
 
     % Affine transformation
@@ -194,7 +219,7 @@ for k = 1:nSamples
     Data.DMP_trj{i}=y_res(:,1:2);
 
     %% Noise generation
-    if strcmpi(noiseType, 'gaussian-background')
+    if strcmpi(args.Results.noise, 'gaussian-background')
         % Desired maximum position
         xc = 13 * rand_number(); 
         yc = 13 * rand_number();
@@ -230,7 +255,7 @@ for k = 1:nSamples
 
         Data.im{i} = IM .* Zn;
         
-    elseif strcmpi(noiseType, 'awgn')     
+    elseif strcmpi(args.Results.noise, 'awgn')     
         % Normalize image
         I = Data.im{i};
         I = double(I);
@@ -241,7 +266,7 @@ for k = 1:nSamples
         % See: http://www.csc.lsu.edu/~saikat/n-mnist/
         Data.im{i} = awgn(I, 9.5);
         
-    elseif strcmpi(noiseType, 'motion-blur')
+    elseif strcmpi(args.Results.noise, 'motion-blur')
         % Normalize image
         I = Data.im{i};
         I = double(I);
@@ -254,7 +279,7 @@ for k = 1:nSamples
         H = fspecial('motion', 5, 15);
         Data.im{i} = imfilter(I, H, 'replicate');
         
-    elseif strcmpi(noiseType, 'reduced-contrast-and-awgn')     
+    elseif strcmpi(args.Results.noise, 'reduced-contrast-and-awgn')     
         % Normalize image
         I = Data.im{i};
         I = double(I);
@@ -270,11 +295,11 @@ for k = 1:nSamples
         Data.im{i} = awgn(I, 12);
     end
 
-    if guiPlot
-        waitbar(i / (nSamples * length(digitArray)), hWaitBar);
+    if args.Results.plot
+        waitbar(i / (args.Results.nSamples * length(args.Results.digits)), hWaitBar);
     else
         % Display the progress
-       percentDone = 100 * i / (nSamples * length(digitArray));
+       percentDone = 100 * i / (args.Results.nSamples * length(args.Results.digits));
        msg = sprintf('Percent done: %3.1f', percentDone); %Don't forget this semicolon
        fprintf([reverseStr, msg]);
        reverseStr = repmat(sprintf('\b'), 1, length(msg));
@@ -284,7 +309,7 @@ for k = 1:nSamples
 end
 
 %% Close the progress bar
-if guiPlot
+if args.Results.plot
     close(hWaitBar)
 end
 
@@ -297,10 +322,10 @@ else
 end
 
 %% Plot examples
-if guiPlot
+if args.Results.plot
     figure(6);
 
-    for i = 1:min([12,nSamples*length(digitArray)])
+    for i = 1:min([12, args.Results.nSamples * length(args.Results.digits)])
         subplot(3,4,i)
 
         imshow(Data.im{i})
@@ -311,9 +336,9 @@ if guiPlot
 end
 
 %% Save generated Data to file
-if ~isempty(savePath)
-    Data.opis = savePath;
+if ~isempty(args.Results.savePath)
+    Data.opis = args.Results.savePath;
     opis = Data.opis;
     date_time = datestr(Data.date);
-    save(savePath,'Data','opis','date_time')  
+    save(args.Results.savePath,'Data','opis','date_time')  
 end
