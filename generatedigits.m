@@ -126,63 +126,82 @@ function Data = generatedigits(nSamples, varargin)
     b = PlotOut.im_size_y - 1;
     [gridX, gridY] = meshgrid(0:1:a, 0:1:b);
 
-    %% Report progress
-    if args.Results.plot
+    %% Prepare to report progress
+    if args.Results.plot && (isempty(args.Results.par) || args.Results.par <= 1)
         hWaitBar = waitbar(0,'Generating digits');
     else
         reverseStr = '';
     end
-
+    
+    %% Prepare cell arrays for the generated data
+    imageArray = cell(1, args.Results.nSamples * length(args.Results.digits));
+    trajArray = cell(1, args.Results.nSamples * length(args.Results.digits));
+    DMPParamsArray = cell(1, args.Results.nSamples * length(args.Results.digits));
+    DMPTrajArray = cell(1, args.Results.nSamples * length(args.Results.digits));
+    
     %% Generate
-%     for k = 1:args.Results.nSamples
-%       for r = 1:length(args.Results.digits)
-% 
-%         digit = args.Results.digits(r);
-% 
-%         i = (k-1) * length(args.Results.digits) + r;
-% 
-%         % Generate a single digit sample
-%         [Data.im{i}, Data.trj{i}, Data.DMP_object{i}, Data.DMP_trj{i}] =...
-%             generatedigit(digit, args, dt, DMP, PlotOut, layout,...
-%                           plotting, width, sigma_d, gauss, gridX, gridY);
-% 
-%         % Display progress
-%         if args.Results.plot
-%             waitbar(i / (args.Results.nSamples * length(args.Results.digits)), hWaitBar);
-%         else
-%            percentDone = 100 * i / (args.Results.nSamples * length(args.Results.digits));
-%            msg = sprintf('Percent done: %3.1f', percentDone);
-%            fprintf([reverseStr, msg]);
-%            reverseStr = repmat(sprintf('\b'), 1, length(msg));
-%         end
-% 
-%       end
-%     end
+    % Matlab parallel execution
+    if ~isempty(args.Results.par) && args.Results.par > 1 && ~isOctave
+        % Prepare parallel pool
+        hPool = parpool(args.Results.par);
+    
+        nSamples = args.Results.nSamples * length(args.Results.digits);
+        parfor iSample = 1:nSamples
+            % Select a digit
+            iDigit = mod(iSample - 1, length(args.Results.digits)) + 1;
+            digit = args.Results.digits(iDigit);
 
-    for iSample = 1:(args.Results.nSamples * length(args.Results.digits))
-        % Select a digit
-        iDigit = mod(iSample - 1, length(args.Results.digits)) + 1;
-        digit = args.Results.digits(iDigit);
+            % Generate a sample of the digit
+            [imageArray{iSample}, trajArray{iSample},...
+             DMPParamsArray{iSample}, DMPTrajArray{iSample}] =...
+                generatedigit(digit, args, dt, DMP, PlotOut, layout,...
+                              plotting, width, sigma_d, gauss, gridX, gridY);
+                          
+            % Report progress
+            if args.Results.plot
+                fprintf('Generated sample %d of %d, %.2f percent done\n', iSample, nSamples, iSample / nSamples);
+            end 
+        end
+        
+        % Close parallel pool
+        delete(hPool);
+        
+    % Octave parallel execution
+    elseif ~isempty(args.Results.par) && args.Results.par > 1 && isOctave
+        
+    % Serial execution
+    else
+        for iSample = 1:(args.Results.nSamples * length(args.Results.digits))
+            % Select a digit
+            iDigit = mod(iSample - 1, length(args.Results.digits)) + 1;
+            digit = args.Results.digits(iDigit);
 
-        % Generate a sample of the digit
-        [Data.im{iSample}, Data.trj{iSample},...
-         Data.DMP_object{iSample}, Data.DMP_trj{iSample}] =...
-            generatedigit(digit, args, dt, DMP, PlotOut, layout,...
-                          plotting, width, sigma_d, gauss, gridX, gridY);
+            % Generate a sample of the digit
+            [Data.im{iSample}, Data.trj{iSample},...
+             Data.DMP_object{iSample}, Data.DMP_trj{iSample}] =...
+                generatedigit(digit, args, dt, DMP, PlotOut, layout,...
+                              plotting, width, sigma_d, gauss, gridX, gridY);
 
-        % Display progress
-        if args.Results.plot
-            waitbar(iSample / (args.Results.nSamples * length(args.Results.digits)), hWaitBar);
-        else
-           percentDone = 100 * iSample / (args.Results.nSamples * length(args.Results.digits));
-           msg = sprintf('Percent done: %3.1f', percentDone);
-           fprintf([reverseStr, msg]);
-           reverseStr = repmat(sprintf('\b'), 1, length(msg));
+            % Report progress
+            if args.Results.plot
+                waitbar(iSample / (args.Results.nSamples * length(args.Results.digits)), hWaitBar);
+            else
+               percentDone = 100 * iSample / (args.Results.nSamples * length(args.Results.digits));
+               msg = sprintf('Percent done: %3.1f', percentDone);
+               fprintf([reverseStr, msg]);
+               reverseStr = repmat(sprintf('\b'), 1, length(msg));
+            end
         end
     end
+    
+    %% Fill out Data struct
+    Data.im = imageArray;
+    Data.trj = trajArray;
+    Data.DMP_object = DMPParamsArray;
+    Data.DMP_trj = DMPTrajArray;
 
     %% Close progress bar
-    if args.Results.plot
+    if args.Results.plot && (isempty(args.Results.par) || args.Results.par <= 1)
         close(hWaitBar)
     end
 
