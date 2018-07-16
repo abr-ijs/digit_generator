@@ -152,45 +152,8 @@ for k = 1:args.Results.nSamples
     parametri_tr.ysh = rand_number()*0.1;
 
     % Generate DMP parameters
-    if digit == 0
-        DMP = st_0(layout, DMP, plotting);
-    end
-
-    if digit == 1
-        DMP = st_1(layout, DMP, plotting);
-    end
-
-    if digit == 2
-        DMP = st_2(layout, DMP, plotting);
-    end
-
-    if digit == 3
-        DMP = st_3(layout, DMP, plotting);
-    end
-
-    if digit == 4
-        DMP = st_4(layout, DMP, plotting);
-    end
-
-    if digit == 5
-        DMP = st_5(layout, DMP, plotting);
-    end
-
-    if digit == 6
-        DMP = st_6(layout, DMP, plotting);
-    end
-
-    if digit == 7
-        DMP = st_7(layout,DMP,plotting);
-    end
-
-    if digit == 8
-        DMP = st_8(layout, DMP, plotting);
-    end
-
-    if digit == 9
-        DMP = st_9(layout, DMP, plotting);
-    end
+    hDigitFunction = str2func(['st_', num2str(digit)]);
+    DMP = hDigitFunction(layout, DMP, plotting);
 
     % Generate image and trajectory
     [Data.im{i}, Data.trj{i}] = narisi_st(DMP, PlotOut, 0); 
@@ -310,7 +273,7 @@ for k = 1:args.Results.nSamples
   end
 end
 
-%% Close the progress bar
+%% Close progress bar
 if args.Results.plot
     close(hWaitBar)
 end
