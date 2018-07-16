@@ -58,88 +58,157 @@ function Data = generatedigits(nSamples, varargin)
 %   Jožef Stefan Institute, Slovenia.
 %   ATR Computational Neuroscience Laboratories, Japan.
 
-%% Set defaults
-defaultDigits = [0:9];
-defaultImageSize = [40,40];
-defaultNoise = [];
-expectedNoiseValues = {'gaussian-background', 'awgn', 'motion-blur',...
-                       'reduced-contrast-and-awgn'};
-defaultSavePath = [];
-defaultPlot = false;
-defaultPar = [];
-defaultSplit = [];
+    %% Set defaults
+    defaultDigits = [0:9];
+    defaultImageSize = [40,40];
+    defaultNoise = [];
+    expectedNoiseValues = {'gaussian-background', 'awgn', 'motion-blur',...
+                           'reduced-contrast-and-awgn'};
+    defaultSavePath = [];
+    defaultPlot = false;
+    defaultPar = [];
+    defaultSplit = [];
 
-%% Parse arguments
-args = inputParser;
-addRequired(args,'nSamples', @(x) isnumeric(x) && isscalar(x) && x >= 1);
-addParameter(args, 'digits', defaultDigits,...
-             @(x) isnumeric(x) && size(x,1) == 1 && 1 <= size(x,2) <= 10 &&...
-                  all(ismember(x, [0:9])));
-addParameter(args, 'imageSize', defaultImageSize,...
-             @(x) isnumeric(x) && size(x,1) == 1 && size(x,2) == 2 &&...
-                  x(1) >= 1 && x(2) >= 1);
-addParameter(args, 'noise', defaultNoise,...
-             @(x) isempty(x) || any(validatestring(x, expectedNoiseValues)));
-addParameter(args, 'savePath', defaultSavePath,...
-             @(x) isempty(x) || ischar(x));
-addParameter(args, 'plot', defaultPlot, @islogical);
-addParameter(args, 'par', defaultPar,...
-             @(x) isempty(x) || (isnumeric(x) && isscalar(x) && x >= 0));
-addParameter(args, 'split', defaultSplit,...
-             @(x) isempty(x) || (isnumeric(x) && size(x,1) == 1 &&...
-                                 2 <= size(x,2) <= 3 && all(x <= 1.0)));
-parse(args, nSamples, varargin{:});
+    %% Parse arguments
+    args = inputParser;
+    addRequired(args,'nSamples', @(x) isnumeric(x) && isscalar(x) && x >= 1);
+    addParameter(args, 'digits', defaultDigits,...
+                 @(x) isnumeric(x) && size(x,1) == 1 && 1 <= size(x,2) <= 10 &&...
+                      all(ismember(x, [0:9])));
+    addParameter(args, 'imageSize', defaultImageSize,...
+                 @(x) isnumeric(x) && size(x,1) == 1 && size(x,2) == 2 &&...
+                      x(1) >= 1 && x(2) >= 1);
+    addParameter(args, 'noise', defaultNoise,...
+                 @(x) isempty(x) || any(validatestring(x, expectedNoiseValues)));
+    addParameter(args, 'savePath', defaultSavePath,...
+                 @(x) isempty(x) || ischar(x));
+    addParameter(args, 'plot', defaultPlot, @islogical);
+    addParameter(args, 'par', defaultPar,...
+                 @(x) isempty(x) || (isnumeric(x) && isscalar(x) && x >= 0));
+    addParameter(args, 'split', defaultSplit,...
+                 @(x) isempty(x) || (isnumeric(x) && size(x,1) == 1 &&...
+                                     2 <= size(x,2) <= 3 && all(x <= 1.0)));
+    parse(args, nSamples, varargin{:});
 
-%% Check for Octave
-if exist('OCTAVE_VERSION', 'builtin') ~= 0
-    isOctave = true;
-else
-    isOctave = false;
+    %% Check for Octave
+    if exist('OCTAVE_VERSION', 'builtin') ~= 0
+        isOctave = true;
+    else
+        isOctave = false;
+    end
+
+    %% Time step and DMP parameters
+    dt = 0.01;
+    DMP.N = 25;
+    DMP.dt = dt;
+    DMP.a_z = 48;
+    DMP.a_x = 2;
+    DMP.tau = 3;
+
+    %% Image size in pixels
+    PlotOut.im_size_x = args.Results.imageSize(1);
+    PlotOut.im_size_y = args.Results.imageSize(2);
+
+    %% Height, width, rotation and translation of initial digit
+    layout.h = 4;
+    layout.w = 2;
+    layout.r = 0;
+    layout.t = 0;
+
+    %% Digit Gaussian filter and line width in pixels
+    plotting = 0;
+    width = 1.0;
+    sigma_d = 0;
+    gauss = 0.1;
+
+    %% Prepare image background
+    a = PlotOut.im_size_x - 1;
+    b = PlotOut.im_size_y - 1;
+    [gridX, gridY] = meshgrid(0:1:a, 0:1:b);
+
+    %% Report progress
+    if args.Results.plot
+        hWaitBar = waitbar(0,'Generating digits');
+    else
+        reverseStr = '';
+    end
+
+    %% Generate
+    for k = 1:args.Results.nSamples
+      for r = 1:length(args.Results.digits)
+
+        digit = args.Results.digits(r);
+
+        i = (k-1) * length(args.Results.digits) + r;
+
+        % Generate a single digit sample
+        [Data.im{i}, Data.trj{i}, Data.DMP_object{i}, Data.DMP_trj{i}] =...
+            generatedigit(digit, args, dt, DMP, PlotOut, layout,...
+                          plotting, width, sigma_d, gauss, gridX, gridY);
+
+        % Display progress
+        if args.Results.plot
+            waitbar(i / (args.Results.nSamples * length(args.Results.digits)), hWaitBar);
+        else
+           percentDone = 100 * i / (args.Results.nSamples * length(args.Results.digits));
+           msg = sprintf('Percent done: %3.1f', percentDone);
+           fprintf([reverseStr, msg]);
+           reverseStr = repmat(sprintf('\b'), 1, length(msg));
+        end
+
+      end
+    end
+
+    %% Close progress bar
+    if args.Results.plot
+        close(hWaitBar)
+    end
+
+    %% Save meta-data in generated Data struct
+    Data.id = rand*1000; % ID number
+    if isOctave
+      Data.date = date;
+    else
+      Data.date = datetime;
+    end
+
+    %% Plot examples
+    if args.Results.plot
+        figure(6);
+
+        for i = 1:min([12, args.Results.nSamples * length(args.Results.digits)])
+            subplot(3,4,i)
+
+            imshow(Data.im{i})
+            hold on
+            p4 = plot(Data.trj{i}(:,1),Data.trj{i}(:,2));
+            %p4.LineWidth = 1; 
+        end
+    end
+
+    %% Save generated Data to file
+    if ~isempty(args.Results.savePath)
+        Data.opis = args.Results.savePath;
+        opis = Data.opis;
+        date_time = datestr(Data.date);
+        save(args.Results.savePath,'Data','opis','date_time')  
+    end
 end
 
-%% Time step and DMP parameters
-dt = 0.01;
-DMP.N = 25;
-DMP.dt = dt;
-DMP.a_z = 48;
-DMP.a_x = 2;
-DMP.tau = 3;
-
-%% Image size in pixels
-PlotOut.im_size_x = args.Results.imageSize(1);
-PlotOut.im_size_y = args.Results.imageSize(2);
-
-%% Height, width, rotation and translation of initial digit
-layout.h = 4;
-layout.w = 2;
-layout.r = 0;
-layout.t = 0;
-
-%% Digit Gaussian filter and line width in pixels
-plotting = 0;
-width = 1.0;
-sigma_d = 0;
-gauss = 0.1;
-
-%% Prepare image background
-a = PlotOut.im_size_x - 1;
-b = PlotOut.im_size_y - 1;
-[x, y] = meshgrid(0:1:a, 0:1:b);
-
-%% Report progress
-if args.Results.plot
-    hWaitBar = waitbar(0,'Generating digits');
-else
-    reverseStr = '';
-end
-
-%% Generate
-for k = 1:args.Results.nSamples
-  for r = 1:length(args.Results.digits)
-      
-    digit = args.Results.digits(r);
-
-    i = (k-1)*length(args.Results.digits)+r;
+%% Functions
+%GENERATEDIGIT: Generate an image and trajectory for a specified digit.
+%   GENERATEDIGIT generates a synthetic MNIST-esque image and draw
+%   trajectory with DMP parameters for the specified numerical digit.
+function [image, traj, DMPParams, DMPTraj] =...
+    generatedigit(digit, args, dt, DMP, PlotOut, layout,...
+                  plotting, width, sigma_d, gauss, gridX, gridY)
+              
+    %% Check for Octave
+    if exist('OCTAVE_VERSION', 'builtin') ~= 0
+        isOctave = true;
+    else
+        isOctave = false;
+    end
 
     % Variation of parameters for image transformation
     PlotOut.debelina = width + rand_number() * sigma_d;
@@ -156,32 +225,32 @@ for k = 1:args.Results.nSamples
     DMP = hDigitFunction(layout, DMP, plotting);
 
     % Generate image and trajectory
-    [Data.im{i}, Data.trj{i}] = narisi_st(DMP, PlotOut, 0); 
+    [image, traj] = narisi_st(DMP, PlotOut, 0); 
 
     % Gaussian filtering of image
     if isOctave
-      Data.im{i} = imsmooth(Data.im{i}, gauss);
+      image = imsmooth(image, gauss);
     else
-      Data.im{i} = imgaussfilt(Data.im{i}, gauss);
+      image = imgaussfilt(image, gauss);
     end
 
     % Affine transformation
-    [Data.im{i}, Data.trj{i}] = affina_tr(Data.im{i}, Data.trj{i}, parametri_tr, plotting);
+    [image, traj] = affina_tr(image, traj, parametri_tr, plotting);
 
     % Velocity and acceleration
-    vx = gradient(Data.trj{i}(:,1), dt);
-    vy = gradient(Data.trj{i}(:,2), dt);
+    vx = gradient(traj(:,1), dt);
+    vy = gradient(traj(:,2), dt);
     ax = gradient(vx, dt);
     ay = gradient(vy, dt);
 
-    path = [(0:dt:dt*(length(Data.trj{i})-1))',Data.trj{i}(:,1),Data.trj{i}(:,2),vx,vy,ax,ay];
+    path = [(0:dt:dt*(length(traj)-1))', traj(:,1), traj(:,2), vx, vy, ax, ay];
     % minus for y and vy!!
     
-    %DMP
-    Data.DMP_object{i} = DMP_reconstruct_adapted(path(:,2:3), path(:,4:5), path(:,6:7), path(:,1), DMP);
+    % DMP
+    DMPParams = DMP_reconstruct_adapted(path(:,2:3), path(:,4:5), path(:,6:7), path(:,1), DMP);
 
-    [t_res, y_res] = DMP_track_adapted(Data.DMP_object{i},Data.DMP_object{i}.y0,Data.DMP_object{i}.dt);
-    Data.DMP_trj{i} = y_res(:,1:2);
+    [t_res, y_res] = DMP_track_adapted(DMPParams, DMPParams.y0, DMPParams.dt);
+    DMPTraj = y_res(:,1:2);
 
     %% Noise generation
     if strcmpi(args.Results.noise, 'gaussian-background')
@@ -209,6 +278,8 @@ for k = 1:args.Results.nSamples
         ay = r(5);
         axy = r(3);
         n = r(6);
+        x = gridX;
+        y = gridY;
         z = axx*x.^2 + ax * x + ayy*y.^2 + ay*y + axy*x.*y + n;
 
         % Normalization
@@ -216,24 +287,24 @@ for k = 1:args.Results.nSamples
         Zn = (Z - min(Z(:))) ./ (max(Z(:)) - min(Z(:)));
         Zn = Zn / (1 - 0.3) + 0.3;
 
-        IM = -Data.im{i} + 1;
+        IM = -image + 1;
 
-        Data.im{i} = IM .* Zn;
+        image = IM .* Zn;
         
     elseif strcmpi(args.Results.noise, 'awgn')     
         % Normalize image
-        I = Data.im{i};
+        I = image;
         I = double(I);
         I = I - min(I(:));
         I = I / max(I(:));
         
         % Add additive white Gaussian noise with a signal-to-noise ratio of 9.5.
         % See: http://www.csc.lsu.edu/~saikat/n-mnist/
-        Data.im{i} = awgn(I, 9.5);
+        image = awgn(I, 9.5);
         
     elseif strcmpi(args.Results.noise, 'motion-blur')
         % Normalize image
-        I = Data.im{i};
+        I = image;
         I = double(I);
         I = I - min(I(:));
         I = I / max(I(:));
@@ -242,11 +313,11 @@ for k = 1:args.Results.nSamples
         % counter-clockwise direction.
         % See: http://www.csc.lsu.edu/~saikat/n-mnist/
         H = fspecial('motion', 5, 15);
-        Data.im{i} = imfilter(I, H, 'replicate');
+        image = imfilter(I, H, 'replicate');
         
     elseif strcmpi(args.Results.noise, 'reduced-contrast-and-awgn')     
         % Normalize image
-        I = Data.im{i};
+        I = image;
         I = double(I);
         I = I - min(I(:));
         I = I / max(I(:));
@@ -257,53 +328,6 @@ for k = 1:args.Results.nSamples
         
         % Add additive white Gaussian noise with a signal-to-noise ratio of 12.
         % See: http://www.csc.lsu.edu/~saikat/n-mnist/
-        Data.im{i} = awgn(I, 12);
+        image = awgn(I, 12);
     end
-
-    if args.Results.plot
-        waitbar(i / (args.Results.nSamples * length(args.Results.digits)), hWaitBar);
-    else
-        % Display the progress
-       percentDone = 100 * i / (args.Results.nSamples * length(args.Results.digits));
-       msg = sprintf('Percent done: %3.1f', percentDone); %Don't forget this semicolon
-       fprintf([reverseStr, msg]);
-       reverseStr = repmat(sprintf('\b'), 1, length(msg));
-    end
-    
-  end
-end
-
-%% Close progress bar
-if args.Results.plot
-    close(hWaitBar)
-end
-
-%% Save meta-data in generated Data struct
-Data.id = rand*1000; % ID number
-if isOctave
-  Data.date = date;
-else
-  Data.date = datetime;
-end
-
-%% Plot examples
-if args.Results.plot
-    figure(6);
-
-    for i = 1:min([12, args.Results.nSamples * length(args.Results.digits)])
-        subplot(3,4,i)
-
-        imshow(Data.im{i})
-        hold on
-        p4 = plot(Data.trj{i}(:,1),Data.trj{i}(:,2));
-        %p4.LineWidth = 1; 
-    end
-end
-
-%% Save generated Data to file
-if ~isempty(args.Results.savePath)
-    Data.opis = args.Results.savePath;
-    opis = Data.opis;
-    date_time = datestr(Data.date);
-    save(args.Results.savePath,'Data','opis','date_time')  
 end
