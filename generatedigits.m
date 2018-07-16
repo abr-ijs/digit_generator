@@ -134,10 +134,11 @@ function Data = generatedigits(nSamples, varargin)
     end
     
     %% Prepare cell arrays for the generated data
-    imageArray = cell(1, args.Results.nSamples * length(args.Results.digits));
-    trajArray = cell(1, args.Results.nSamples * length(args.Results.digits));
-    DMPParamsArray = cell(1, args.Results.nSamples * length(args.Results.digits));
-    DMPTrajArray = cell(1, args.Results.nSamples * length(args.Results.digits));
+    nSamples = args.Results.nSamples * length(args.Results.digits);
+    imageArray = cell(1, nSamples);
+    trajArray = cell(1, nSamples);
+    DMPParamsArray = cell(1, nSamples);
+    DMPTrajArray = cell(1, nSamples);
     
     %% Generate
     % Matlab parallel execution
@@ -151,8 +152,8 @@ function Data = generatedigits(nSamples, varargin)
         else
             hPool = parpool(args.Results.par);
         end
-    
-        nSamples = args.Results.nSamples * length(args.Results.digits);
+        
+        % Parallel execution
         parfor iSample = 1:nSamples
             % Select a digit
             iDigit = mod(iSample - 1, length(args.Results.digits)) + 1;
@@ -174,11 +175,25 @@ function Data = generatedigits(nSamples, varargin)
         delete(hPool);
         
     % Octave parallel execution
-    elseif ~isempty(args.Results.par) && args.Results.par > 1 && isOctave
-        
+  elseif ~isempty(args.Results.par) && args.Results.par > 1 && isOctave
+        % Generate a digit type array for the whole dataset
+        for iSample = 1:nSamples
+          iDigit = mod(iSample - 1, length(args.Results.digits)) + 1;
+          digit = args.Results.digits(iDigit);
+          digitArray(iSample) = digit;
+        end
+
+        % Parallel execution
+        [imageArray, trajArray, DMPParamsArray, DMPTrajArray] =...
+            pararrayfun(args.Results.par,...
+                        @(iSample) generatedigit(digitArray(iSample), args, dt, DMP, PlotOut, layout,...
+                                                 plotting, width, sigma_d, gauss, gridX, gridY),
+                        1:length(digitArray),
+                        "UniformOutput", false);                        
+                          
     % Serial execution
     else
-        for iSample = 1:(args.Results.nSamples * length(args.Results.digits))
+        for iSample = 1:nSamples
             % Select a digit
             iDigit = mod(iSample - 1, length(args.Results.digits)) + 1;
             digit = args.Results.digits(iDigit);
@@ -191,9 +206,9 @@ function Data = generatedigits(nSamples, varargin)
 
             % Report progress
             if args.Results.plot
-                waitbar(iSample / (args.Results.nSamples * length(args.Results.digits)), hWaitBar);
+                waitbar(iSample / nSamples, hWaitBar);
             else
-               percentDone = 100 * iSample / (args.Results.nSamples * length(args.Results.digits));
+               percentDone = 100 * (iSample / nSamples);
                msg = sprintf('Percent done: %3.1f', percentDone);
                fprintf([reverseStr, msg]);
                reverseStr = repmat(sprintf('\b'), 1, length(msg));
