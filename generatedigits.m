@@ -176,20 +176,20 @@ function Data = generatedigits(nSamples, varargin)
         
     % Octave parallel execution
     elseif ~isempty(args.Results.par) && args.Results.par > 1 && isOctave
-          % Generate a digit type array for the whole dataset
-          for iSample = 1:nSamples
+        % Generate a digit type array for the whole dataset
+        for iSample = 1:nSamples
             iDigit = mod(iSample - 1, length(args.Results.digits)) + 1;
             digit = args.Results.digits(iDigit);
             digitArray(iSample) = digit;
-          end
+        end
 
-          % Parallel execution
-          [imageArray, trajArray, DMPParamsArray, DMPTrajArray] =...
-              pararrayfun(args.Results.par,...
-                          @(iSample) generatedigit(digitArray(iSample), args, dt, DMP, PlotOut, layout,...
-                                                   plotting, width, sigma_d, gauss, gridX, gridY),
-                          1:length(digitArray),
-                          "UniformOutput", false);                        
+        % Parallel execution
+        [imageArray, trajArray, DMPParamsArray, DMPTrajArray] =...
+            pararrayfun(args.Results.par,...
+                        @(iSample) generatedigit(digitArray(iSample), args, dt, DMP, PlotOut, layout,...
+                                                 plotting, width, sigma_d, gauss, gridX, gridY),...
+                        1:length(digitArray),...
+                        "UniformOutput", false);                        
                           
     % Serial execution
     else
