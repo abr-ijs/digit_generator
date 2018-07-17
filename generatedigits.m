@@ -175,21 +175,21 @@ function Data = generatedigits(nSamples, varargin)
         delete(hPool);
         
     % Octave parallel execution
-  elseif ~isempty(args.Results.par) && args.Results.par > 1 && isOctave
-        % Generate a digit type array for the whole dataset
-        for iSample = 1:nSamples
-          iDigit = mod(iSample - 1, length(args.Results.digits)) + 1;
-          digit = args.Results.digits(iDigit);
-          digitArray(iSample) = digit;
-        end
+    elseif ~isempty(args.Results.par) && args.Results.par > 1 && isOctave
+          % Generate a digit type array for the whole dataset
+          for iSample = 1:nSamples
+            iDigit = mod(iSample - 1, length(args.Results.digits)) + 1;
+            digit = args.Results.digits(iDigit);
+            digitArray(iSample) = digit;
+          end
 
-        % Parallel execution
-        [imageArray, trajArray, DMPParamsArray, DMPTrajArray] =...
-            pararrayfun(args.Results.par,...
-                        @(iSample) generatedigit(digitArray(iSample), args, dt, DMP, PlotOut, layout,...
-                                                 plotting, width, sigma_d, gauss, gridX, gridY),
-                        1:length(digitArray),
-                        "UniformOutput", false);                        
+          % Parallel execution
+          [imageArray, trajArray, DMPParamsArray, DMPTrajArray] =...
+              pararrayfun(args.Results.par,...
+                          @(iSample) generatedigit(digitArray(iSample), args, dt, DMP, PlotOut, layout,...
+                                                   plotting, width, sigma_d, gauss, gridX, gridY),
+                          1:length(digitArray),
+                          "UniformOutput", false);                        
                           
     % Serial execution
     else
@@ -217,10 +217,10 @@ function Data = generatedigits(nSamples, varargin)
     end
     
     %% Fill out Data struct
-    Data.im = imageArray;
-    Data.trj = trajArray;
-    Data.DMP_object = DMPParamsArray;
-    Data.DMP_trj = DMPTrajArray;
+    Data.imageArray = imageArray;
+    Data.trajArray = trajArray;
+    Data.DMPParamsArray = DMPParamsArray;
+    Data.DMPTrajArray = DMPTrajArray;
 
     %% Close progress bar
     if args.Results.plot && (isempty(args.Results.par) || args.Results.par <= 1)
@@ -228,33 +228,35 @@ function Data = generatedigits(nSamples, varargin)
     end
 
     %% Save meta-data in generated Data struct
-    Data.id = rand*1000; % ID number
     if isOctave
-      Data.date = date;
+      Data.date = strftime ("%Y-%b-%d %H:%M:%S", localtime (time ()));
     else
-      Data.date = datetime;
+      Data.date = datestr(datetime);
     end
+    Data.filename = args.Results.savePath;
 
     %% Plot examples
     if args.Results.plot
-        figure(6);
+        figure;
 
         for i = 1:min([12, args.Results.nSamples * length(args.Results.digits)])
             subplot(3,4,i)
 
-            imshow(Data.im{i})
+            imshow(Data.imageArray{i})
             hold on
-            p4 = plot(Data.trj{i}(:,1),Data.trj{i}(:,2));
+            p4 = plot(Data.trajArray{i}(:,1), Data.trajArray{i}(:,2));
             %p4.LineWidth = 1; 
         end
     end
 
     %% Save generated Data to file
     if ~isempty(args.Results.savePath)
-        Data.opis = args.Results.savePath;
-        opis = Data.opis;
-        date_time = datestr(Data.date);
-        save(args.Results.savePath,'Data','opis','date_time')  
+        if isOctave
+          % Octave V7 mat file saving borks the scipy.io loader
+          save(args.Results.savePath, 'Data', '-v6');
+        else
+          save(args.Results.savePath, 'Data');
+        end
     end
 end
 
