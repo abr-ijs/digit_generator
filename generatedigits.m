@@ -68,6 +68,7 @@ function Data = generatedigits(nSamples, varargin)
     defaultPlot = false;
     defaultPar = [];
     defaultSplit = [];
+    defaultSeed = [];
 
     %% Parse arguments
     args = inputParser;
@@ -88,6 +89,8 @@ function Data = generatedigits(nSamples, varargin)
     addParameter(args, 'split', defaultSplit,...
                  @(x) isempty(x) || (isnumeric(x) && size(x,1) == 1 &&...
                                      2 <= size(x,2) <= 3 && all(x <= 1.0)));
+    addParameter(args, 'seed', defaultSeed,...
+                 @(x) isempty(x) || (isnumeric(x) && isscalar(x) && x >= 1));
     parse(args, nSamples, varargin{:});
 
     %% Check for Octave
@@ -95,6 +98,15 @@ function Data = generatedigits(nSamples, varargin)
         isOctave = true;
     else
         isOctave = false;
+    end
+
+    %% Seed the random number generator
+    if ~isempty(args.Results.seed)
+      if isOctave
+        rand('state', args.Results.seed);
+      else
+        rng(args.Results.seed, 'twister');
+      end
     end
 
     %% Time step and DMP parameters
