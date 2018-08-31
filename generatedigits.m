@@ -62,6 +62,7 @@ function Data = generatedigits(nSamples, varargin)
     defaultDigits = [0:9];
     defaultImageSize = [40,40];
     defaultNoise = [];
+    expectedTransformValues = {'rotate'};
     expectedNoiseValues = {'gaussian-background', 'awgn', 'motion-blur',...
                            'reduced-contrast-and-awgn'};
     defaultSavePath = [];
@@ -128,7 +129,7 @@ function Data = generatedigits(nSamples, varargin)
     layout.t = 0;
 
     %% Digit Gaussian filter and line width in pixels
-    plotting = 0;
+    visualize = 0;
     width = 1.0;
     sigma_d = 0;
     gauss = 0.1;
@@ -175,7 +176,7 @@ function Data = generatedigits(nSamples, varargin)
             [imageArray{iSample}, trajArray{iSample},...
              DMPParamsArray{iSample}, DMPTrajArray{iSample}] =...
                 generatedigit(digit, args, dt, DMP, DigitOptions, layout,...
-                              plotting, width, sigma_d, gauss, gridX, gridY);
+                              visualize, width, sigma_d, gauss, gridX, gridY);
                           
             % Report progress
             if args.Results.plot
@@ -199,7 +200,7 @@ function Data = generatedigits(nSamples, varargin)
         [imageArray, trajArray, DMPParamsArray, DMPTrajArray] =...
             pararrayfun(args.Results.par,...
                         @(iSample) generatedigit(digitArray(iSample), args, dt, DMP, DigitOptions, layout,...
-                                                 plotting, width, sigma_d, gauss, gridX, gridY),...
+                                                 visualize, width, sigma_d, gauss, gridX, gridY),...
                         1:length(digitArray),...
                         "UniformOutput", false);                        
                           
@@ -214,7 +215,7 @@ function Data = generatedigits(nSamples, varargin)
             [imageArray{iSample}, trajArray{iSample},...
              DMPParamsArray{iSample}, DMPTrajArray{iSample}] =...
                 generatedigit(digit, args, dt, DMP, DigitOptions, layout,...
-                              plotting, width, sigma_d, gauss, gridX, gridY);
+                              visualize, width, sigma_d, gauss, gridX, gridY);
 
             % Report progress
             if args.Results.plot
@@ -278,7 +279,7 @@ end
 %   trajectory with DMP parameters for the specified numerical digit.
 function [image, traj, DMPParams, DMPTraj] =...
     generatedigit(digit, args, dt, DMP, DigitOptions, layout,...
-                  plotting, width, sigma_d, gauss, gridX, gridY)
+                  visualize, width, sigma_d, gauss, gridX, gridY)
               
     %% Check for Octave
     if exist('OCTAVE_VERSION', 'builtin') ~= 0
@@ -290,16 +291,16 @@ function [image, traj, DMPParams, DMPTraj] =...
     % Variation of parameters for image transformation
     DigitOptions.thickness = width + rand_number() * sigma_d;
 
-    traj_params.theta = rand_number()*8*pi/180;
-    traj_params.x = rand_number()*3;
-    traj_params.y = rand_number()*3;
-    traj_params.xs = 1+rand_number()*0.1;
-    traj_params.ys = 1+rand_number()*0.1;
-    traj_params.ysh = rand_number()*0.1;
+    TrajParams.theta = rand_number()*8*pi/180;
+    TrajParams.x = rand_number()*3;
+    TrajParams.y = rand_number()*3;
+    TrajParams.xs = 1+rand_number()*0.1;
+    TrajParams.ys = 1+rand_number()*0.1;
+    TrajParams.ysh = rand_number()*0.1;
 
     % Generate DMP parameters
     hDigitFunction = str2func(['digit', num2str(digit)]);
-    DMP = hDigitFunction(layout, DMP, plotting);
+    DMP = hDigitFunction(layout, DMP, visualize);
 
     % Draw digit trajectory and digit image
     [image, traj] = drawdigit(DMP, DigitOptions, 0); 
@@ -312,7 +313,7 @@ function [image, traj, DMPParams, DMPTraj] =...
     end
 
     % Affine transformation
-    [image, traj] = affinetransform(image, traj, traj_params, plotting);
+    [image, traj] = affinetransform(image, traj, TrajParams, visualize);
 
     % Velocity and acceleration
     vx = gradient(traj(:,1), dt);
@@ -383,7 +384,7 @@ function [image, traj, DMPParams, DMPTraj] =...
         % Normalize image
         I = image;
         I = double(I);
-        I = I - min(I(:));
+        I = I - min(I(:));visualize
         I = I / max(I(:));
         
         % Apply a linear camera motion of 5 pixels 15 degrees in the

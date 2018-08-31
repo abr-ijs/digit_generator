@@ -1,12 +1,12 @@
-function [B, x_traj] = affinetransform(image, traj, traj_params, visualize)
+function [B, x_traj] = affinetransform(image, traj, TrajParams, visualize)
 
-  tx=traj_params.x;
-  ty=traj_params.y*(-1);
-  sx= traj_params.xs;
-  sy= traj_params.ys;
-  shy=traj_params.ysh;
+  tx=TrajParams.x;
+  ty=TrajParams.y*(-1);
+  sx= TrajParams.xs;
+  sy= TrajParams.ys;
+  shy=TrajParams.ysh;
   shx=0;
-  theta=traj_params.theta;
+  theta=TrajParams.theta;
 
   T=[1 0 0;...
       0 1 0;...
