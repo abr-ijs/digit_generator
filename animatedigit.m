@@ -1,5 +1,5 @@
-function izris_stevila(trj, k, fr, demo)
-% Casovna animacija izrisa trajektorije stevila
+function animatedigit(trj, k, fr, demo)
+% Animated digit plotting
 
 %%
 if nargin < 4
@@ -25,5 +25,5 @@ if demo == 1
        delete(sc)  
    end      
 end
-%!!! pazi minusi
+%!!! Watch out for minuses
 p = plot(trj(:,2), trj(:,3), k, 'LineWidth', 6);

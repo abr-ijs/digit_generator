@@ -51,8 +51,8 @@ function Data = generatedigits(nSamples, varargin)
 %   is stored within the generated data struct alongside the indices.
 %   If set to [] or omitted, no split will be generated. Defaults to [];
 %
-%   Required Matlab functions: devet programov st_*, izris_stevila, rand_number,
-%   st_2del, narisi_st, affina_tr, set DMP funkcij
+%   Required Matlab functions: digit[0-9], animatedigit, rand_number,
+%   generatedmptraj, drawdigit, affinetransform, set DMP functions
 %
 %   Copyright (C) 2018 Rok Pahič, Barry Ridge
 %   Jožef Stefan Institute, Slovenia.
@@ -118,8 +118,8 @@ function Data = generatedigits(nSamples, varargin)
     DMP.tau = 3;
 
     %% Image size in pixels
-    PlotOut.im_size_x = args.Results.imageSize(1);
-    PlotOut.im_size_y = args.Results.imageSize(2);
+    DigitOptions.im_size_x = args.Results.imageSize(1);
+    DigitOptions.im_size_y = args.Results.imageSize(2);
 
     %% Height, width, rotation and translation of initial digit
     layout.h = 4;
@@ -134,8 +134,8 @@ function Data = generatedigits(nSamples, varargin)
     gauss = 0.1;
 
     %% Prepare image background
-    a = PlotOut.im_size_x - 1;
-    b = PlotOut.im_size_y - 1;
+    a = DigitOptions.im_size_x - 1;
+    b = DigitOptions.im_size_y - 1;
     [gridX, gridY] = meshgrid(0:1:a, 0:1:b);
 
     %% Prepare to report progress
@@ -174,7 +174,7 @@ function Data = generatedigits(nSamples, varargin)
             % Generate a sample of the digit
             [imageArray{iSample}, trajArray{iSample},...
              DMPParamsArray{iSample}, DMPTrajArray{iSample}] =...
-                generatedigit(digit, args, dt, DMP, PlotOut, layout,...
+                generatedigit(digit, args, dt, DMP, DigitOptions, layout,...
                               plotting, width, sigma_d, gauss, gridX, gridY);
                           
             % Report progress
@@ -198,7 +198,7 @@ function Data = generatedigits(nSamples, varargin)
         % Parallel execution
         [imageArray, trajArray, DMPParamsArray, DMPTrajArray] =...
             pararrayfun(args.Results.par,...
-                        @(iSample) generatedigit(digitArray(iSample), args, dt, DMP, PlotOut, layout,...
+                        @(iSample) generatedigit(digitArray(iSample), args, dt, DMP, DigitOptions, layout,...
                                                  plotting, width, sigma_d, gauss, gridX, gridY),...
                         1:length(digitArray),...
                         "UniformOutput", false);                        
@@ -213,7 +213,7 @@ function Data = generatedigits(nSamples, varargin)
             % Generate a sample of the digit
             [imageArray{iSample}, trajArray{iSample},...
              DMPParamsArray{iSample}, DMPTrajArray{iSample}] =...
-                generatedigit(digit, args, dt, DMP, PlotOut, layout,...
+                generatedigit(digit, args, dt, DMP, DigitOptions, layout,...
                               plotting, width, sigma_d, gauss, gridX, gridY);
 
             % Report progress
@@ -277,7 +277,7 @@ end
 %   GENERATEDIGIT generates a synthetic MNIST-esque image and draw
 %   trajectory with DMP parameters for the specified numerical digit.
 function [image, traj, DMPParams, DMPTraj] =...
-    generatedigit(digit, args, dt, DMP, PlotOut, layout,...
+    generatedigit(digit, args, dt, DMP, DigitOptions, layout,...
                   plotting, width, sigma_d, gauss, gridX, gridY)
               
     %% Check for Octave
@@ -288,21 +288,21 @@ function [image, traj, DMPParams, DMPTraj] =...
     end
 
     % Variation of parameters for image transformation
-    PlotOut.debelina = width + rand_number() * sigma_d;
+    DigitOptions.thickness = width + rand_number() * sigma_d;
 
-    parametri_tr.theta = rand_number()*8*pi/180;
-    parametri_tr.x = rand_number()*3;
-    parametri_tr.y = rand_number()*3;
-    parametri_tr.xs = 1+rand_number()*0.1;
-    parametri_tr.ys = 1+rand_number()*0.1;
-    parametri_tr.ysh = rand_number()*0.1;
+    traj_params.theta = rand_number()*8*pi/180;
+    traj_params.x = rand_number()*3;
+    traj_params.y = rand_number()*3;
+    traj_params.xs = 1+rand_number()*0.1;
+    traj_params.ys = 1+rand_number()*0.1;
+    traj_params.ysh = rand_number()*0.1;
 
     % Generate DMP parameters
-    hDigitFunction = str2func(['st_', num2str(digit)]);
+    hDigitFunction = str2func(['digit', num2str(digit)]);
     DMP = hDigitFunction(layout, DMP, plotting);
 
-    % Generate image and trajectory
-    [image, traj] = narisi_st(DMP, PlotOut, 0); 
+    % Draw digit trajectory and digit image
+    [image, traj] = drawdigit(DMP, DigitOptions, 0); 
 
     % Gaussian filtering of image
     if isOctave
@@ -312,7 +312,7 @@ function [image, traj, DMPParams, DMPTraj] =...
     end
 
     % Affine transformation
-    [image, traj] = affina_tr(image, traj, parametri_tr, plotting);
+    [image, traj] = affinetransform(image, traj, traj_params, plotting);
 
     % Velocity and acceleration
     vx = gradient(traj(:,1), dt);
