@@ -61,8 +61,9 @@ function Data = generatedigits(nSamples, varargin)
     %% Set defaults
     defaultDigits = [0:9];
     defaultImageSize = [40,40];
-    defaultNoise = [];
+    defaultTransform = [];
     expectedTransformValues = {'rotate'};
+    defaultNoise = [];
     expectedNoiseValues = {'gaussian-background', 'awgn', 'motion-blur',...
                            'reduced-contrast-and-awgn'};
     defaultSavePath = [];
@@ -80,6 +81,8 @@ function Data = generatedigits(nSamples, varargin)
     addParameter(args, 'imageSize', defaultImageSize,...
                  @(x) isnumeric(x) && size(x,1) == 1 && size(x,2) == 2 &&...
                       x(1) >= 1 && x(2) >= 1);
+    addParameter(args, 'transform', defaultTransform,...
+                 @(x) isempty(x) || any(validatestring(x, expectedTransformValues)));
     addParameter(args, 'noise', defaultNoise,...
                  @(x) isempty(x) || any(validatestring(x, expectedNoiseValues)));
     addParameter(args, 'savePath', defaultSavePath,...
@@ -291,12 +294,22 @@ function [image, traj, DMPParams, DMPTraj] =...
     % Variation of parameters for image transformation
     DigitOptions.thickness = width + rand_number() * sigma_d;
 
-    TrajParams.theta = rand_number()*8*pi/180;
-    TrajParams.x = rand_number()*3;
-    TrajParams.y = rand_number()*3;
-    TrajParams.xs = 1+rand_number()*0.1;
-    TrajParams.ys = 1+rand_number()*0.1;
-    TrajParams.ysh = rand_number()*0.1;
+    %% Transform generation
+    if strcmpi(args.Results.transform, 'rotate')
+      TrajParams.theta = rand_number()*90*pi/180;
+      TrajParams.x = rand_number()*3;
+      TrajParams.y = rand_number()*3;
+      TrajParams.xs = 1+rand_number()*0.1;
+      TrajParams.ys = 1+rand_number()*0.1;
+      TrajParams.ysh = rand_number()*0.1;
+    else
+      TrajParams.theta = rand_number()*8*pi/180;
+      TrajParams.x = rand_number()*3;
+      TrajParams.y = rand_number()*3;
+      TrajParams.xs = 1+rand_number()*0.1;
+      TrajParams.ys = 1+rand_number()*0.1;
+      TrajParams.ysh = rand_number()*0.1;
+    end
 
     % Generate DMP parameters
     hDigitFunction = str2func(['digit', num2str(digit)]);
