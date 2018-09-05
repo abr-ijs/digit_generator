@@ -23,41 +23,26 @@ function [B, x_traj] = affinetransform(image, traj, TrajParams, visualize)
   M=SH*SC*R*T;
 
   if exist('OCTAVE_VERSION', 'builtin') ~= 0
-    incp = [1 1; size(image,1) 1; size(image,1)  size(image,2) ; 1 size(image,2)];
-    udata = [min(incp(:,1)) max(incp(:,1))];
-    vdata = [min(incp(:,2)) max(incp(:,2))];
-    T1=[1 0 0;...
-        0 1 0;...
-        -20 -20 1];
-    
-    tform_1=maketform('affine',T1);
-    [B1 ,xl,yl]= imtransform(image,tform_1);
-    
-    a=size(image,1)/2;
-    b=size(image,2)/2;
-
-    tform=maketform('affine',M);
-    [B2 ,xl,yl]= imtransform(B1,tform ,'vdata',[1-a,a],'udata', [1-b,b],'xdata',[1-a,a],'ydata', [1-b,b]);
-
-    T1=[1 0 0;...
-        0 1 0;...
-        20 20 1];
-    
-    tform_1=maketform('affine',T1);
-    [B,xl,yl]= imtransform(B2,tform_1,'vdata',[1-a,a],'udata', [1-b,b],'xdata',[1,size(image,1)],'ydata', [1,size(image,2)]);
-    
+    a = size(image,2)/2;
+    b = size(image,1)/2;
+    tform = maketform('affine', M);
+    [B ,xl,yl] = imtransform(image, tform ,...
+                             'vdata', [1-a,a], 'udata', [1-b,b],...
+                             'xdata', [1-a,a], 'ydata', [1-b,b]);
   else
     cb_ref = imref2d(size(image));
-    cb_ref.XWorldLimits=cb_ref.XWorldLimits-size(image,1)/2;
-    cb_ref.YWorldLimits=cb_ref.YWorldLimits-size(image,1)/2;
-    tform=affine2d(M);
-    B=imwarp(image,cb_ref,tform,'OutputView',cb_ref);
+    cb_ref.XWorldLimits = cb_ref.XWorldLimits-size(image,2)/2;
+    cb_ref.YWorldLimits = cb_ref.YWorldLimits-size(image,1)/2;
+    tform = affine2d(M);
+    B = imwarp(image,cb_ref,tform,'OutputView', cb_ref);
   end
 
-  slike.traj_t=traj;
-  slike.traj_t(:,1:2)=traj(:,1:2)-size(image,1)/2;
-  x_traj=(slike.traj_t*M);
-  x_traj=x_traj+size(image,1)/2;
+  traj_t = traj;
+  traj_t(:,1) = traj(:,1) - size(image,2)/2;
+  traj_t(:,2) = traj(:,2) - size(image,1)/2;
+  x_traj = traj_t * M;
+  x_traj(:,1) = x_traj(:,1) + size(image,2)/2;
+  x_traj(:,2) = x_traj(:,2) + size(image,1)/2;
 
   if visualize
     figure

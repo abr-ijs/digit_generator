@@ -17,6 +17,18 @@ function Data = generatedigits(nSamples, varargin)
 %   DATA = GENERATEDIGITS(NSAMPLES, ..."IMAGESIZE", IMAGESIZEVAL...)
 %   allows the generated image size to be specified as a 1D,
 %   2-element array, e.g. [28,28].  Defaults to [40,40].
+%   
+%   DATA = GENERATEDIGITS(NSAMPLES, ..."TRANSFORM", TRANSFORMVAL...) allows
+%   affine transform distortions to be optionally added to the generated images,
+%   where TRANSFORMVAL is a string that may be specified as "rotated",
+%   or "rotated-translated-and-scaled".  Both of these
+%   are parameterized similarly to the transforms used in the
+%   distorted MNIST datasets of Jaderberg et al. in the
+%   Spatial Transformer Networks paper: https://arxiv.org/abs/1506.02025
+%   The transformed images and trajectories will be stored separately from
+%   original images and trajectories in the DATA struct.
+%   If set to [] or omitted, the additional transformed images and trajectories
+%   will not be generated.
 %
 %   DATA = GENERATEDIGITS(NSAMPLES, ..."NOISE", NOISEVAL...) allows
 %   noise to be optionally added to the generated images, where
@@ -62,7 +74,7 @@ function Data = generatedigits(nSamples, varargin)
     defaultDigits = [0:9];
     defaultImageSize = [40,40];
     defaultTransform = [];
-    expectedTransformValues = {'rotate'};
+    expectedTransformValues = {'rotated', 'rotated-translated-and-scaled'};
     defaultNoise = [];
     expectedNoiseValues = {'gaussian-background', 'awgn', 'motion-blur',...
                            'reduced-contrast-and-awgn'};
@@ -155,6 +167,10 @@ function Data = generatedigits(nSamples, varargin)
     trajArray = cell(1, nSamples);
     DMPParamsArray = cell(1, nSamples);
     DMPTrajArray = cell(1, nSamples);
+    trans_imageArray = cell(1, nSamples);
+    trans_trajArray = cell(1, nSamples);
+    TransDMPParamsArray = cell(1, nSamples);
+    TransDMPTrajArray = cell(1, nSamples);
     
     %% Generate
     % Matlab parallel execution
@@ -177,7 +193,9 @@ function Data = generatedigits(nSamples, varargin)
 
             % Generate a sample of the digit
             [imageArray{iSample}, trajArray{iSample},...
-             DMPParamsArray{iSample}, DMPTrajArray{iSample}] =...
+             DMPParamsArray{iSample}, DMPTrajArray{iSample},...
+             trans_imageArray{iSample}, trans_trajArray{iSample},...
+             TransDMPParamsArray{iSample}, TransDMPTrajArray{iSample}] =...
                 generatedigit(digit, args, dt, DMP, DigitOptions, layout,...
                               visualize, width, sigma_d, gauss, gridX, gridY);
                           
@@ -200,7 +218,8 @@ function Data = generatedigits(nSamples, varargin)
         end
 
         % Parallel execution
-        [imageArray, trajArray, DMPParamsArray, DMPTrajArray] =...
+        [imageArray, trajArray, DMPParamsArray, DMPTrajArray,...
+         trans_imageArray, trans_trajArray, TransDMPParamsArray, TransDMPTrajArray] =...
             pararrayfun(args.Results.par,...
                         @(iSample) generatedigit(digitArray(iSample), args, dt, DMP, DigitOptions, layout,...
                                                  visualize, width, sigma_d, gauss, gridX, gridY),...
@@ -216,7 +235,9 @@ function Data = generatedigits(nSamples, varargin)
 
             % Generate a sample of the digit
             [imageArray{iSample}, trajArray{iSample},...
-             DMPParamsArray{iSample}, DMPTrajArray{iSample}] =...
+             DMPParamsArray{iSample}, DMPTrajArray{iSample},...
+             trans_imageArray{iSample}, trans_trajArray{iSample},...
+             TransDMPParamsArray{iSample}, TransDMPTrajArray{iSample}] =...
                 generatedigit(digit, args, dt, DMP, DigitOptions, layout,...
                               visualize, width, sigma_d, gauss, gridX, gridY);
 
@@ -237,6 +258,10 @@ function Data = generatedigits(nSamples, varargin)
     Data.trajArray = trajArray;
     Data.DMPParamsArray = DMPParamsArray;
     Data.DMPTrajArray = DMPTrajArray;
+    Data.trans_imageArray = trans_imageArray;
+    Data.trans_trajArray = trans_trajArray;
+    Data.TransDMPParamsArray = TransDMPParamsArray;
+    Data.TransDMPTrajArray = TransDMPTrajArray;
 
     %% Close progress bar
     if args.Results.plot && (isempty(args.Results.par) || args.Results.par <= 1)
@@ -263,6 +288,18 @@ function Data = generatedigits(nSamples, varargin)
             p4 = plot(Data.trajArray{i}(:,1), Data.trajArray{i}(:,2));
             %p4.LineWidth = 1; 
         end
+        
+        if ~isempty(Data.trans_imageArray)
+          figure;
+
+          for i = 1:min([12, args.Results.nSamples * length(args.Results.digits)])
+              subplot(3,4,i)
+
+              imshow(Data.trans_imageArray{i})
+              hold on
+              plot(Data.trans_trajArray{i}(:,1), Data.trans_trajArray{i}(:,2));
+          end
+        end
     end
 
     %% Save generated Data to file
@@ -280,7 +317,8 @@ end
 %GENERATEDIGIT: Generate an image and trajectory for a specified digit.
 %   GENERATEDIGIT generates a synthetic MNIST-esque image and draw
 %   trajectory with DMP parameters for the specified numerical digit.
-function [image, traj, DMPParams, DMPTraj] =...
+function [image, traj, DMPParams, DMPTraj,...
+          trans_image, trans_traj, TransDMPParams, TransDMPTraj] =...
     generatedigit(digit, args, dt, DMP, DigitOptions, layout,...
                   visualize, width, sigma_d, gauss, gridX, gridY)
               
@@ -294,22 +332,13 @@ function [image, traj, DMPParams, DMPTraj] =...
     % Variation of parameters for image transformation
     DigitOptions.thickness = width + rand_number() * sigma_d;
 
-    %% Transform generation
-    if strcmpi(args.Results.transform, 'rotate')
-      TrajParams.theta = rand_number()*90*pi/180;
-      TrajParams.x = rand_number()*3;
-      TrajParams.y = rand_number()*3;
-      TrajParams.xs = 1+rand_number()*0.1;
-      TrajParams.ys = 1+rand_number()*0.1;
-      TrajParams.ysh = rand_number()*0.1;
-    else
-      TrajParams.theta = rand_number()*8*pi/180;
-      TrajParams.x = rand_number()*3;
-      TrajParams.y = rand_number()*3;
-      TrajParams.xs = 1+rand_number()*0.1;
-      TrajParams.ys = 1+rand_number()*0.1;
-      TrajParams.ysh = rand_number()*0.1;
-    end
+    %% Default transform generation
+    TrajParams.theta = rand_number()*8*pi/180;
+    TrajParams.x = rand_number()*3;
+    TrajParams.y = rand_number()*3;
+    TrajParams.xs = 1+rand_number()*0.1;
+    TrajParams.ys = 1+rand_number()*0.1;
+    TrajParams.ysh = rand_number()*0.1;
 
     % Generate DMP parameters
     hDigitFunction = str2func(['digit', num2str(digit)]);
@@ -342,6 +371,85 @@ function [image, traj, DMPParams, DMPTraj] =...
 
     [t_res, y_res] = DMP_track_adapted(DMPParams, DMPParams.y0, DMPParams.dt);
     DMPTraj = y_res(:,1:2);
+    
+    %% Additional transform generation
+    if !isempty(args.Results.transform)
+      % Mimicking the 'rotated dataset (R)' from the Spatial Transformer
+      % Networks paper: https://arxiv.org/abs/1506.02025
+      if strcmpi(args.Results.transform, 'rotated')
+        % Set transform parameters to transform with a random rotation sampled
+        % uniformly between −90 and +90 degrees.
+        TransTrajParams.theta = rand_number()*90*pi/180;
+        TransTrajParams.x = 0;
+        TransTrajParams.y = 0;
+        TransTrajParams.xs = 1;
+        TransTrajParams.ys = 1;
+        TransTrajParams.ysh = 0;
+        
+        % Do the transform
+        [trans_image, trans_traj] = affinetransform(image, traj, TransTrajParams, visualize);
+      
+      % Mimicking the 'rotated, translated and scaled dataset (RTS)' from the
+      % Spatial Transformer Networks paper: https://arxiv.org/abs/1506.02025  
+    elseif strcmpi(args.Results.transform, 'rotated-translated-and-scaled')
+        % Set transform parameters to randomly rotate the digit by sampling
+        % uniformly between -45 and +45 degrees and randomly scale the digit by
+        % a factor of between 0.7 and 1.2.
+        TransTrajParams.theta = rand_number()*45*pi/180;
+        scaling_factor = (1.2-0.7)*rand + 0.7;
+        TransTrajParams.x = 0;
+        TransTrajParams.y = 0;
+        TransTrajParams.xs = scaling_factor;
+        TransTrajParams.ys = scaling_factor;
+        TransTrajParams.ysh = 0;
+        
+        % Do the transform
+        [trans_image, trans_traj] = affinetransform(image, traj, TransTrajParams, visualize);
+        
+        % Separately, create a new image with a black background scaled to be
+        % 1.5 times the size of original image and insert the digit in a random
+        % location within it (this mimicks the 28x28 -> 42x42 digit image insertion
+        % of the RTS dataset in the STN paper).
+        r = round(size(trans_image, 1) * 1.5);
+        c = round(size(trans_image, 2) * 1.5);
+        back_image = zeros(r,c);
+        insert_r = round(((r - size(trans_image, 1)) - 1)*rand + 1);
+        insert_c = round(((c - size(trans_image, 2)) - 1)*rand + 1);
+        back_image(insert_r:insert_r+size(trans_image,1)-1,
+                   insert_c:insert_c+size(trans_image,2)-1) = trans_image;
+        trans_image = back_image;
+        
+        % In this case, the trajectory also needs to be translated.
+        trans_traj(:,1) = trans_traj(:,1) + insert_c - 1;
+        trans_traj(:,2) = trans_traj(:,2) + insert_r - 1;
+        
+      end
+      
+      % Velocity and acceleration
+      vx = gradient(trans_traj(:,1), dt);
+      vy = gradient(trans_traj(:,2), dt);
+      ax = gradient(vx, dt);
+      ay = gradient(vy, dt);
+
+      trans_path = [(0:dt:dt*(length(trans_traj)-1))', trans_traj(:,1), trans_traj(:,2), vx, vy, ax, ay];
+      % minus for y and vy!!
+      
+      % DMP
+      TransDMPParams = DMP_reconstruct_adapted(trans_path(:,2:3),...
+                                               trans_path(:,4:5),...
+                                               trans_path(:,6:7),...
+                                               trans_path(:,1), DMP);
+
+      [trans_t_res, trans_y_res] = DMP_track_adapted(DMPParams, DMPParams.y0, DMPParams.dt);
+      TransDMPTraj = trans_y_res(:,1:2);
+      
+    else
+      trans_image = [];
+      trans_traj = [];
+      TransDMPParams = [];
+      TransDMPTraj = [];
+      
+    end
 
     %% Noise generation
     if strcmpi(args.Results.noise, 'gaussian-background')
