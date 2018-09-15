@@ -487,10 +487,14 @@ function [image, traj, DMPParams, DMPTraj,...
         Zn = Zn / (1 - 0.3) + 0.3;
 
         IM = -image + 1;
-
         image = IM .* Zn;
         
-    elseif strcmpi(args.Results.noise, 'awgn')     
+        if !isempty(args.Results.transform)
+          trans_IM = -trans_image + 1;
+          trans_image = trans_IM .* Zn;
+        endif
+        
+    elseif strcmpi(args.Results.noise, 'awgn')
         % Normalize image
         I = image;
         I = double(I);
@@ -500,6 +504,18 @@ function [image, traj, DMPParams, DMPTraj,...
         % Add additive white Gaussian noise with a signal-to-noise ratio of 9.5.
         % See: http://www.csc.lsu.edu/~saikat/n-mnist/
         image = awgn(I, 9.5);
+        
+        if !isempty(args.Results.transform)
+          % Normalize image
+          trans_I = trans_image;
+          trans_I = double(trans_I);
+          trans_I = trans_I - min(trans_I(:));
+          trans_I = trans_I / max(trans_I(:));
+          
+          % Add additive white Gaussian noise with a signal-to-noise ratio of 9.5.
+          % See: http://www.csc.lsu.edu/~saikat/n-mnist/
+          trans_image = awgn(trans_I, 9.5);
+        endif
         
     elseif strcmpi(args.Results.noise, 'motion-blur')
         % Normalize image
@@ -513,6 +529,20 @@ function [image, traj, DMPParams, DMPTraj,...
         % See: http://www.csc.lsu.edu/~saikat/n-mnist/
         H = fspecial('motion', 5, 15);
         image = imfilter(I, H, 'replicate');
+        
+        if !isempty(args.Results.transform)
+          % Normalize image
+          trans_I = trans_image;
+          trans_I = double(trans_I);
+          trans_I = trans_I - min(trans_I(:));
+          trans_I = trans_I / max(trans_I(:));
+          
+          % Apply a linear camera motion of 5 pixels 15 degrees in the
+          % counter-clockwise direction.
+          % See: http://www.csc.lsu.edu/~saikat/n-mnist/
+          trans_H = fspecial('motion', 5, 15);
+          trans_image = imfilter(trans_I, trans_H, 'replicate');
+        endif
         
     elseif strcmpi(args.Results.noise, 'reduced-contrast-and-awgn')     
         % Normalize image
@@ -528,5 +558,21 @@ function [image, traj, DMPParams, DMPTraj,...
         % Add additive white Gaussian noise with a signal-to-noise ratio of 12.
         % See: http://www.csc.lsu.edu/~saikat/n-mnist/
         image = awgn(I, 12);
+        
+        if !isempty(args.Results.transform)
+          % Normalize image
+          trans_I = trans_image;
+          trans_I = double(trans_I);
+          trans_I = trans_I - min(trans_I(:));
+          trans_I = trans_I / max(trans_I(:));
+          
+          % Reduce contrast range by 50%.
+          % See: http://www.csc.lsu.edu/~saikat/n-mnist/
+          trans_I = imadjust(trans_I, [0.0,1.0], [0.0,0.5]);
+          
+          % Add additive white Gaussian noise with a signal-to-noise ratio of 12.
+          % See: http://www.csc.lsu.edu/~saikat/n-mnist/
+          trans_image = awgn(trans_I, 12);
+        endif
     end
 end
