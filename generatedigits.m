@@ -39,6 +39,11 @@ function Data = generatedigits(nSamples, varargin)
 %   http://www.csc.lsu.edu/~saikat/n-mnist/
 %   If set to [] or omitted, no noise will be added.
 %
+%   DATA = GENERATEDIGITS(NSAMPLES, ..."WIDTH", WIDTHVAL...) allows
+%   digits of fixed or varied line width to be generated,
+%   where WIDTHVAL is a string that may be specified as "fixed",
+%   or "varied". If set to [] or omitted, it defaults to "fixed".
+%
 %   DATA = GENERATEDIGITS(NSAMPLES, ..."SAVEPATH", SAVEPATHVAL...)
 %   allows a .mat file save path to be optionally specified for saving
 %   the generated data to file. If set to [] or omitted, no file will be
@@ -78,6 +83,8 @@ function Data = generatedigits(nSamples, varargin)
     defaultNoise = [];
     expectedNoiseValues = {'gaussian-background', 'awgn', 'motion-blur',...
                            'reduced-contrast-and-awgn'};
+    defaultWidth = [];
+    expectedWidthValues = {'varied'};
     defaultSavePath = [];
     defaultPlot = false;
     defaultPar = [];
@@ -97,6 +104,8 @@ function Data = generatedigits(nSamples, varargin)
                  @(x) isempty(x) || any(validatestring(x, expectedTransformValues)));
     addParameter(args, 'noise', defaultNoise,...
                  @(x) isempty(x) || any(validatestring(x, expectedNoiseValues)));
+    addParameter(args, 'width', defaultWidth,...
+                 @(x) isempty(x) || any(validatestring(x, expectedWidthValues)));
     addParameter(args, 'savePath', defaultSavePath,...
                  @(x) isempty(x) || ischar(x));
     addParameter(args, 'plot', defaultPlot, @islogical);
@@ -146,7 +155,15 @@ function Data = generatedigits(nSamples, varargin)
     %% Digit Gaussian filter and line width in pixels
     visualize = 0;
     width = 1.0;
-    sigma_d = 0;
+    if !isempty(args.Results.width)
+      if strcmpi(args.Results.width, 'varied')
+        sigma_d = 0.5;
+      else
+        sigma_d = 0.0;
+      endif
+    else
+      sigma_d = 0.0;
+    endif
     gauss = 0.1;
 
     %% Prepare image background
